@@ -49,3 +49,22 @@ lazy val `sbt-plugin` = (project in file("sbt-plugin"))
     name := "api4s-sbt",
   )
   .dependsOn(codegen)
+
+// sonatype-related settings
+ThisBuild / publishTo := sonatypePublishTo.value
+ThisBuild / publishMavenStyle := true
+ThisBuild / licenses :=
+  Seq("BSD3" -> url("https://raw.githubusercontent.com/IndiscriminateCoding/api4s/dev/LICENSE"))
+ThisBuild / homepage := Some(url("https://github.com/IndiscriminateCoding/api4s"))
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/IndiscriminateCoding/api4s"),
+    "scm:git@github.com:IndiscriminateCoding/api4s.git"
+  )
+)
+ThisBuild / developers := List(Developer(
+  id = "IndiscriminateCoding",
+  name = "IndiscriminateCoding",
+  email = "28496046+IndiscriminateCoding@users.noreply.github.com",
+  url = url("https://github.com/IndiscriminateCoding/")
+))
