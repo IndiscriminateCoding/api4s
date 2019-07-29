@@ -13,6 +13,7 @@ lazy val example = (project in file("."))
     )),
     name := "example",
     libraryDependencies ++= Seq(
-      organization.value %% "api4s-runtime" % version.value
+      organization.value %% "api4s-runtime" % version.value,
+      "org.http4s" %% "http4s-blaze-server" % "0.21.0-M2"
     )
   )
