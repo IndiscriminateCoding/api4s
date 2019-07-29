@@ -9,8 +9,9 @@ import sbt._
 import scala.collection.mutable
 
 object Api4s extends AutoPlugin {
+  case class Src(file: File, pkg: String, server: Boolean = true, client: Boolean = true)
+
   object autoImport {
-    case class Src(file: File, pkg: String, server: Boolean, client: Boolean)
     val api4sSources = settingKey[Seq[Src]]("Sources for api4s codegen")
   }
   import autoImport._
