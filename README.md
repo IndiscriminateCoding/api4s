@@ -17,7 +17,7 @@ Also you need to enable plugin usage in `build.sbt`:
 lazy val root = (project in file("."))
   .enablePlugins(Api4s)
   .settings(
-    api4sSources := Seq(Src(
+    api4sSources := Seq(Api4s.Src(
       file = sourceDirectory.value / "main" / "swagger" / "my-specification.yaml",
       pkg = "com.example",
       server = true,
