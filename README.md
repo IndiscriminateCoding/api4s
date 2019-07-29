@@ -9,11 +9,11 @@ Uses [http4s](https://github.com/http4s/http4s) and [circe](https://github.com/c
 
 The simplest way to use this library is via sbt plugin. Add following line to `project/plugins.sbt`:
 
-```
+```scala
 addSbtPlugin("com.github.IndiscriminateCoding" % "api4s-sbt" % "0.0.2")
 ```
 Also you need to enable plugin usage in `build.sbt`:
-```
+```scala
 lazy val root = (project in file("."))
   .enablePlugins(Api4s)
   .settings(
