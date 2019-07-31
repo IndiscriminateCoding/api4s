@@ -79,7 +79,7 @@ object Helpers {
 
   private val printer = Printer.spaces2.copy(dropNullValues = true)
 
-  implicit def circeEntityEncoder[F[_] : Applicative, A: Encoder]: EntityEncoder[F, A] =
+  def circeEntityEncoder[F[_] : Applicative, A: Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
 
   def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {

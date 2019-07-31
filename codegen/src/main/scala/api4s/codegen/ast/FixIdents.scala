@@ -36,15 +36,20 @@ object FixIdents {
     "throw", "trait", "try", "true", "type", "val", "var", "while", "with", "yield"
   )
   private val reservedIdentifiers = Set(
-    "mutable", "request", "formData", "api", "client", "http4s", "circeEntityEncoder"
+    "mutable", "request", "formData", "api", "client", "http4s"
   )
   private val importedSymbols = Set(
     "Map", "String", "Int", "Long", "Double", "Boolean", "Stream", "Byte", "Some", "Option",
     "List", "Throwable",
+
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil",  "Resource",
-    "Coproduct", "UnexpectedStatus", "Method",
+    "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
+    "Printer",
+
     "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "ToResponse",
+
     "Model", "Http4sServer", "Http4sClient", "Client", "Api",
+
     "Ok", "Created", "Accepted", "NoContent"
     //"BadRequest", "Unauthorized", "Forbidden", "NotFound",
     //"InternalServerError", "BadGateway", "ServiceUnavailable", "GatewayTimeout"

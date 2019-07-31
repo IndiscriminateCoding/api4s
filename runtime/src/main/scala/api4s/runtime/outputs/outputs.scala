@@ -42,7 +42,8 @@ trait ToResponse[F[_]] extends Poly1 {
       Response(
         status = Status.Accepted,
         body = E.toEntity(x.content).body,
-        headers = E.headers)
+        headers = E.headers
+      )
     }
   implicit def noContent: Case.Aux[NoContent, Response[F]] =
     at[NoContent] { _ => Response(status = Status.NoContent) }

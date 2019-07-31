@@ -38,7 +38,7 @@ object Http4sClient {
     val body = e.parameters.filter { case (pt, _) => pt == Body || pt == FormData }
     val encoder = body match {
       case (Body, Parameter(n, rn, t, true)) :: Nil => List(
-        s"val _encoder = circeEntityEncoder[F, ${typeStr(t)}]",
+        s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]",
         "_headers ++= _encoder.headers.toList"
       )
       case _ => Nil
@@ -104,7 +104,6 @@ object Http4sClient {
       s"package $pkg",
       "",
       "import api4s.runtime.internal.Helpers",
-      "import api4s.runtime.internal.Helpers.circeEntityEncoder",
       "import api4s.runtime.outputs._",
       "import fs2.Stream",
       "import cats.effect.Sync",

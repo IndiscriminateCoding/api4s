@@ -85,7 +85,7 @@ object Http4sServer {
         "import api4s.runtime.Endpoint",
         "import api4s.runtime.Endpoint.RoutingErrorAlgebra",
         "import api4s.runtime.internal.Helpers",
-        "import api4s.runtime.internal.Helpers.{ RichRequest, circeEntityEncoder }",
+        "import api4s.runtime.internal.Helpers.RichRequest",
         "import api4s.runtime.outputs._",
         "import cats.effect.Sync",
         "import org.http4s.{ Method, Request, Response, Status }",
