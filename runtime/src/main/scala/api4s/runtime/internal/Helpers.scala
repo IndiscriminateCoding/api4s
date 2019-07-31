@@ -82,6 +82,8 @@ object Helpers {
   def circeEntityEncoder[F[_] : Applicative, A: Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
 
+  def circeEntityDecoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
+
   def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {
     val enc = circeEntityEncoder[F, A]
     val ent = enc.toEntity(a)
@@ -95,11 +97,4 @@ object Helpers {
 
   def emptyResponse[F[_]](status: Status): Response[F] =
     Response(status = status)
-
-  def decoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
-
-  def decode[F[_], A: Decoder](m: Message[F])(implicit F: Sync[F]): F[A] = decoder[F, A]
-    .decode(m, strict = true)
-    .fold[F[A]](F.raiseError, F.pure)
-    .flatten
 }

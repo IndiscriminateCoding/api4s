@@ -54,9 +54,9 @@ object Http4sClient {
     def runOn(rs: List[(String, Option[Type])]): List[String] = {
       def one(s: String, t: Option[Type]): String = t match {
         case Some(t) if rs.length == 1 =>
-          s"case Status.$s => Helpers.decode[F, ${typeStr(t)}](r)"
+          s"case Status.$s => r.as[${typeStr(t)}]"
         case Some(t) => List(
-          s"case Status.$s => F.map(Helpers.decode[F, ${typeStr(t)}](r))",
+          s"case Status.$s => F.map(r.as[${typeStr(t)}])",
           s"(x => Coproduct[${responseType.plain}]($s(x)))"
         ).mkString
         case None if rs.length == 1 => s"case Status.$s => F.unit"

@@ -45,7 +45,7 @@ object Http4sServer {
     val apiCallWithBody = e.parameters.find(_._1 == Body) match {
       case None => apiWithExtractor
       case Some((_, Parameter(n, rn, t, true))) =>
-        val decoder = s"Helpers.decoder[F, ${typeStr(t)}]"
+        val decoder = s"Helpers.circeEntityDecoder[F, ${typeStr(t)}]"
         s"request.decodeWith($decoder, true)($n => $apiWithExtractor)"
       case Some((_, Parameter(_, _, _, false))) =>
         throw new Exception("optional body isn't expected!")
