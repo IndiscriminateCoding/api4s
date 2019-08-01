@@ -1,7 +1,7 @@
 package api4s.codegen.ast
 
 import api4s.codegen.Utils._
-import api4s.codegen.ast.Segment.{ Parameter => SParam }
+import api4s.codegen.ast.Segment._
 import api4s.codegen.ast.Type._
 
 object FixIdents {
@@ -19,7 +19,6 @@ object FixIdents {
       idx += 1
       val res = s"$pref$idx${parts(s)}"
       replaced = replaced.updated(s, res)
-      println(s, res)
       res
     }
 
@@ -44,9 +43,9 @@ object FixIdents {
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil",  "Resource",
     "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
-    "Printer",
+    "Inl", "Inr",
 
-    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "ToResponse",
+    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api",
 
@@ -96,7 +95,7 @@ object FixIdents {
     val endpoints = api.endpoints map { case (segments, methods) =>
       val snames = new IDFactory("path")
       val nsegments = segments.map {
-        case SParam(n) if !allowedLower(n) || !snames.allowed(n) => SParam(snames(n))
+        case Argument(n) if !allowedLower(n) || !snames.allowed(n) => Argument(snames(n))
         case s => s
       }
       val nmethods = methods mapValueList { ep =>
@@ -113,7 +112,7 @@ object FixIdents {
             case ps @ (_, p) if allowedLower(p.name) && paramNames.allowed(p.name) => ps
             case (pt, p) => pt -> p.copy(name = paramNames(p.name))
           },
-          responses = ep.responses.mapValues(r => r.copy(t = r.t.map(patchType)))
+          responses = ep.responses.mapValues(_.mapValueList(r => r.copy(t = r.t.map(patchType))))
         )
       }
       nsegments -> nmethods

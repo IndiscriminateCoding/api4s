@@ -9,7 +9,7 @@ object CollapsedMultipart {
         val filtered = e.parameters.filter(_._1 != ParameterType.FormData)
         val collapsed =
           if (filtered.size != e.parameters.size) List(
-            ParameterType.FormData -> Parameter("formData", "formData", Type.TFile(), true)
+            ParameterType.FormData -> Parameter("formData", "formData", Type.TBinary(), true)
           ) else Nil
         filtered ++ collapsed
       }

@@ -12,27 +12,18 @@ object CirceModel {
     val codecs = ts.map {
       case (n, TObj(_)) => List(
         s"  implicit val encoderOf$n: Encoder[$n] = deriveEncoder",
-        s"  implicit val decoderOf$n: Decoder[$n] = deriveDecoder",
-        s"  implicit def entityEncoderOf$n[F[_] : Applicative]: EntityEncoder[F, $n] =",
-        s"    jsonEncoderWithPrinterOf[F, $n](printer)",
-        s"  implicit def entityDecoderOf$n[F[_] : Sync]: EntityDecoder[F, $n] = jsonOf[F, $n]",
+        s"  implicit val decoderOf$n: Decoder[$n] = deriveDecoder"
       )
       case _ => Nil
     }.map(_.mkString("\n")).mkString("\n\n")
     List(
       s"package $pkg",
       "",
-      "import cats.Applicative",
-      "import cats.effect.Sync",
-      "import io.circe.{ Decoder, Encoder, Printer }",
+      "import io.circe.{ Decoder, Encoder, Json }",
       "import io.circe.generic.semiauto._",
-      "import org.http4s.{ EntityDecoder, EntityEncoder }",
-      "import org.http4s.circe._",
       "",
       "object Model {",
       defs,
-      "",
-      "  private val printer = Printer.spaces2.copy(dropNullValues = true)",
       "",
       codecs,
       "}"

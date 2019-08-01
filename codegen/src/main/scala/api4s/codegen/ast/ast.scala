@@ -1,5 +1,7 @@
 package api4s.codegen.ast
 
+import org.http4s.MediaRange
+
 import scala.collection.immutable.{ ListMap, SortedMap }
 
 case class Api(
@@ -21,7 +23,7 @@ object Type {
   case class TNum() extends Type
   case class TString() extends Type
   case class TBool() extends Type
-  case class TFile() extends Type
+  case class TBinary() extends Type
 }
 
 sealed trait Method
@@ -38,7 +40,7 @@ object Method {
 sealed trait Segment
 object Segment {
   case class Static(value: String) extends Segment
-  case class Parameter(name: String) extends Segment
+  case class Argument(name: String) extends Segment
 }
 
 sealed trait ParameterType
@@ -53,10 +55,10 @@ object ParameterType {
 case class Endpoint(
   name: Option[String],
   parameters: List[(ParameterType, Parameter)],
-  responses: SortedMap[Option[Int], Response]
+  responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]
 ) {
-  responses foreach {
-    case (Some(204), Response(Some(_), _)) =>
+  responses.getOrElse(Some(204), ListMap.empty) foreach {
+    case (_, Response(Some(_), _)) =>
       throw new IllegalArgumentException(s"Non-empty 204 response for endpoint $name")
     case _ =>
   }

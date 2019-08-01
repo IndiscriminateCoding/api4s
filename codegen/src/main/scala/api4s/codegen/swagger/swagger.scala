@@ -3,11 +3,13 @@ package api4s.codegen.swagger
 import api4s.codegen.Utils._
 import api4s.codegen.ast.{ Parameter => Param, Response => Resp, _ }
 import io.circe.Json
+import org.http4s.{ MediaRange, MediaType }
 
 import scala.collection.immutable.{ ListMap, SortedMap }
 
 case class Root(
   basePath: Option[String],
+  produces: Option[List[String]],
   paths: Option[ListMap[String, PathItem]],
   definitions: Option[ListMap[String, Schema]],
   parameters: Option[ListMap[String, Parameter]],
@@ -32,7 +34,8 @@ case class Root(
     .getOrElse(ListMap.empty)
     .mapValueList(_.resolve(
       responses.getOrElse(ListMap.empty),
-      parameters.getOrElse(ListMap.empty)
+      parameters.getOrElse(ListMap.empty),
+      produces
     ))
 
   def endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]] =
@@ -43,7 +46,7 @@ case class Root(
           case s if s.startsWith("{") =>
             val name = s.substring(1, s.length - 1)
             params = params + name
-            Segment.Parameter(name)
+            Segment.Argument(name)
           case s => Segment.Static(s)
         }
         val endpoints = item.endpoints
@@ -93,15 +96,26 @@ case class PathItem(
     parameters = None
   )
 
-  def resolve(rs: ListMap[String, Response], ps: ListMap[String, Parameter]): PathItem =
+  def resolve(
+    rs: ListMap[String, Response],
+    ps: ListMap[String, Parameter],
+    p: Option[List[String]]
+  ): PathItem =
     insertParameters.copy(
-      get = insertParameters.get.map(_.resolveParameters(ps).resolveResponses(rs)),
-      post = insertParameters.post.map(_.resolveParameters(ps).resolveResponses(rs)),
-      put = insertParameters.put.map(_.resolveParameters(ps).resolveResponses(rs)),
-      delete = insertParameters.delete.map(_.resolveParameters(ps).resolveResponses(rs)),
-      options = insertParameters.options.map(_.resolveParameters(ps).resolveResponses(rs)),
-      head = insertParameters.head.map(_.resolveParameters(ps).resolveResponses(rs)),
-      patch = insertParameters.patch.map(_.resolveParameters(ps).resolveResponses(rs)),
+      get = insertParameters.get
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      post = insertParameters.post
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      put = insertParameters.put
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      delete = insertParameters.delete
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      options = insertParameters.options
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      head = insertParameters.head
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+      patch = insertParameters.patch
+        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
     )
 
   def endpoints: ListMap[Method, Endpoint] = ListMap(List(
@@ -117,10 +131,15 @@ case class PathItem(
 
 case class Operation(
   operationId: Option[String],
+  produces: Option[List[String]],
   parameters: Option[List[Parameter]],
   responses: SortedMap[String, Response] // may contain default; at least one element
 ) {
   require(responses.nonEmpty, s"responses object is empty: $this")
+
+  def addProduces(p: Option[List[String]]): Operation = this.copy(
+    produces = produces.orElse(p)
+  )
 
   def addParameters(ps: Option[List[Parameter]]): Operation = copy(
     parameters = Some(ps.getOrElse(Nil) ++ parameters.getOrElse(Nil))
@@ -156,12 +175,22 @@ case class Operation(
       case p => throw new IllegalArgumentException(s"Unexpected parameter $p")
     }
 
+    val mediaTypes = produces
+      .getOrElse(List("application/json"))
+      .map(mt => MediaRange.parse(mt) match {
+        case Left(e) => throw e
+        case Right(r) => r
+      })
+
+    def mediaTypeMap(r: Resp): ListMap[MediaRange, Resp] = ListMap(mediaTypes.map(_ -> r): _*)
+
     val resps = responses map {
       case ("default", r) =>
-        None -> Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty))
+        None -> mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
       case (c, r) =>
         try {
-          Some(c.toInt) -> Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty))
+          Some(c.toInt) ->
+            mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
         } catch {
           case _: NumberFormatException =>
             throw new IllegalArgumentException(s"incorrect response '$r'")
@@ -202,7 +231,7 @@ case class Parameter(
     case _ if `type`.contains("array") && !in.contains("body") => Type.TString()
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
     case _ if `type`.contains("array") => Type.TArr(Type.TJson())
-    case _ if `type`.contains("file") => Type.TFile()
+    case _ if `type`.contains("file") => Type.TBinary()
     case _ if schema.nonEmpty => schema.get.getType
     case _ => throw new IllegalArgumentException(s"incorrect parameter: $this")
   }
@@ -237,7 +266,7 @@ case class Schema(
     case _ if `type`.contains("boolean") => Type.TBool()
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
     case _ if `type`.contains("array") => Type.TArr(Type.TJson())
-    case _ if `type`.contains("file") => Type.TFile()
+    case _ if `type`.contains("file") => Type.TBinary()
     case _ if `type`.contains("object")
       && additionalProperties.isEmpty
       && allOf.isEmpty

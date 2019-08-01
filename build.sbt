@@ -21,6 +21,7 @@ lazy val codegen = (project in file("codegen"))
     crossScalaVersions := scalaVersions,
     name := "api4s-codegen",
     libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-core" % http4sVersion,
       "io.circe" %% "circe-yaml" % "0.11.0-M1",
       "io.circe" %% "circe-generic" % circeVersion
     )

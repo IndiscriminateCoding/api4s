@@ -5,8 +5,10 @@
 /project/target/
 /codegen/target/
 /runtime/target/
-/runtime/src/test
 /sbt-plugin/target
 /example/project/project
 /example/project/target
 /example/target
+
+/codegen/src/main/scala/api4s/codegen/Main.scala
+/runtime/src/test

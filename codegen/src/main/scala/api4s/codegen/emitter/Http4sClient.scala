@@ -3,6 +3,7 @@ package api4s.codegen.emitter
 import api4s.codegen.ast.Type._
 import api4s.codegen.ast._
 import api4s.codegen.emitter.Utils._
+import org.http4s.MediaType
 
 object Http4sClient {
   private def endpoint(segments: List[Segment], method: Method, e: Endpoint): List[String] = {
@@ -33,7 +34,7 @@ object Http4sClient {
     }.mkString(", ")
     val path = segments.map {
       case Segment.Static(s) => s
-      case Segment.Parameter(p) => s"$$$p"
+      case Segment.Argument(p) => s"$$$p"
     }.mkString("/")
     val body = e.parameters.filter { case (pt, _) => pt == Body || pt == FormData }
     val encoder = body match {
@@ -44,19 +45,31 @@ object Http4sClient {
       case _ => Nil
     }
     val bodyStr = body match {
-      case (FormData, Parameter("formData", _, TFile(), _)) :: Nil => List("body = formData,")
+      case (FormData, Parameter("formData", _, TBinary(), _)) :: Nil => List("body = formData,")
       case (Body, Parameter(n, rn, t, true)) :: Nil => List(s"body = _encoder.toEntity($n).body,")
       case Nil => Nil
       case ps => throw new Exception(s"Unexpected Body/FormData parameters in ${e.name}: $ps")
     }
     val responseType = ResponseType(e.responses)
 
-    def runOn(rs: List[(String, Option[Type])]): List[String] = {
-      def one(s: String, t: Option[Type]): String = t match {
-        case Some(t) if rs.length == 1 =>
-          s"case Status.$s => r.as[${typeStr(t)}]"
-        case Some(t) => List(
-          s"case Status.$s => F.map(r.as[${typeStr(t)}])",
+    def runOn(rs: List[(String, Option[(MediaType, Type)])]): List[String] = {
+      def decoderStr(mt: MediaType): String = () match {
+        case _ if isJson(mt) => "Helpers.circeEntityDecoder"
+        case _ if isText(mt) => "http4s.EntityDecoder.text[F]"
+        case _ => throw new Exception(s"No EntityDecoder for $mt")
+      }
+
+      def one(s: String, t: Option[(MediaType, Type)]): String = t match {
+        case Some((mt, t @ TBinary())) if rs.length == 1 && isGeneric(mt) =>
+          s"case Status.$s => F.pure(r.body)"
+        case Some((mt, t @ TBinary())) if isGeneric(mt) =>
+          s"case Status.$s => F.map(r.body)(x => Coproduct[${responseType.plain}]($s(x)))"
+        case Some((mt, t)) if isGeneric(mt) =>
+          throw new Exception(s"[C] Unexpected media-type $mt for type $t")
+        case Some((mt, t)) if rs.length == 1 =>
+          s"case Status.$s => r.as[${typeStr(t)}](F, ${decoderStr(mt)})"
+        case Some((mt, t)) => List(
+          s"case Status.$s => F.map(r.as[${typeStr(t)}](F, ${decoderStr(mt)}))",
           s"(x => Coproduct[${responseType.plain}]($s(x)))"
         ).mkString
         case None if rs.length == 1 => s"case Status.$s => F.unit"

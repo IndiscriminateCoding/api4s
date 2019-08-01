@@ -2,10 +2,11 @@ package api4s.runtime.internal
 
 import cats.Applicative
 import cats.effect.Sync
-import cats.syntax.all._
+import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
 import org.http4s.circe._
+import org.http4s.headers._
 import org.http4s.util.CaseInsensitiveString
 
 import scala.util.control.NonFatal
@@ -85,15 +86,36 @@ object Helpers {
   def circeEntityDecoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
   def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {
-    val enc = circeEntityEncoder[F, A]
-    val ent = enc.toEntity(a)
+    val encoder = circeEntityEncoder[F, A]
+    val entity = encoder.toEntity(a)
 
     Response(
       status = status,
-      headers = enc.headers,
-      body = ent.body
+      headers = encoder.headers,
+      body = entity.body
     )
   }
+
+  def textResponse[F[_]](status: Status, mediaType: String)(text: String): Response[F] = {
+    val encoder = EntityEncoder.simple[F, String](Header("Content-Type", mediaType))(s =>
+      Chunk.bytes(s.getBytes(DefaultCharset.nioCharset))
+    )
+
+    Response(
+      status = status,
+      headers = encoder.headers,
+      body = encoder.toEntity(text).body
+    )
+  }
+
+  def byteResponse[F[_]](
+    status: Status,
+    mediaType: String
+  )(bytes: fs2.Stream[F, Byte]): Response[F] = Response(
+    status = status,
+    headers = Headers.of(Header("Content-Type", mediaType)),
+    body = bytes
+  )
 
   def emptyResponse[F[_]](status: Status): Response[F] =
     Response(status = status)
