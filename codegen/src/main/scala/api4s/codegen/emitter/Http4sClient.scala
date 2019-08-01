@@ -60,15 +60,13 @@ object Http4sClient {
       }
 
       def one(s: String, t: Option[(MediaType, Type)]): String = t match {
-        case Some((mt, t @ TBinary())) if rs.length == 1 && isGeneric(mt) =>
+        case Some((mt, _)) if rs.length == 1 && isGeneric(mt) =>
           s"case Status.$s => F.pure(r.body)"
-        case Some((mt, t @ TBinary())) if isGeneric(mt) =>
+        case Some((mt, _)) if isGeneric(mt) =>
           s"case Status.$s => F.map(r.body)(x => Coproduct[${responseType.plain}]($s(x)))"
-        case Some((mt, t)) if isGeneric(mt) =>
-          throw new Exception(s"[C] Unexpected media-type $mt for type $t")
-        case Some((mt, t)) if rs.length == 1 =>
+        case t @ Some((mt, _)) if rs.length == 1 =>
           s"case Status.$s => r.as[${typeStr(t)}](F, ${decoderStr(mt)})"
-        case Some((mt, t)) => List(
+        case t @ Some((mt, _)) => List(
           s"case Status.$s => F.map(r.as[${typeStr(t)}](F, ${decoderStr(mt)}))",
           s"(x => Coproduct[${responseType.plain}]($s(x)))"
         ).mkString

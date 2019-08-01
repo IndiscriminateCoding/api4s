@@ -46,11 +46,7 @@ object Utils {
       def toMt(r: List[(MediaRange, Response)]): Option[(MediaType, Type)] = for {
         (mr, r) <- r.headOption
         mt = mr.asInstanceOf[MediaType]
-        rt <- () match {
-          case _ if isGeneric(mt) => r.t.map(_ => TBinary())
-          case _ if isText(mt) => r.t.map(_ => TString())
-          case _ => r.t
-        }
+        rt <- r.t
       } yield mt -> rt
 
       val rs2xx = rs
@@ -94,9 +90,8 @@ object Utils {
 
   def typeStr(t: Option[(MediaRange, Type)]): String = t match {
     case None => "Unit"
-    case Some((mt: MediaType, t)) if mt.mainType == "application" && mt.subType == "json" =>
-      typeStr(t)
-    case Some((mt: MediaType, TString())) if mt.mainType == "text" => typeStr(TString())
+    case Some((mt: MediaType, t)) if isJson(mt) => typeStr(t)
+    case Some((mt: MediaType, _)) if isText(mt) => typeStr(TString())
     case Some(_) => typeStr(TBinary())
   }
 }

@@ -40,15 +40,14 @@ object Http4sServer {
       case None => s"Helpers.emptyResponse[F](Status.$c)"
       case Some((mt, t)) if isJson(mt) =>
         s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
-      case Some((mt, TString())) if isText(mt) =>
+      case Some((mt, _)) if isText(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
-      case Some((mt, TBinary())) =>
+      case Some((mt, _)) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Helpers.byteResponse[F](Status.$c, "${sw.result}")"""
-      case Some((mt, t)) => throw new Exception(s"[S] Unexpected media-type $mt for type $t")
     }
 
     val apiWithExtractor = ResponseType(e.responses) match {
