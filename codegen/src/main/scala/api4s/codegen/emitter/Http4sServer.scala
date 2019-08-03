@@ -18,21 +18,37 @@ object Http4sServer {
       if (primitives(t)) typeStr(t)
       else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = ${e.name.get})")
 
-    val paramStr = e.parameters
+    val params = e.parameters
       .map {
-        case (Body, Parameter(name, _, _, _)) => name
-        case (FormData, Parameter("formData", _, TBinary(), _)) => "request.body"
-        case (Path, Parameter(n, _, TString(), true)) => n
+        case (Path, Parameter(n, _, TString(), true)) => n -> true
         case (Path, Parameter(n, _, t, true)) =>
-          s"Helpers.parser[${primitiveStr(t)}].required($n)"
+          s"Helpers.parser[${primitiveStr(t)}].required($n)" -> true
         case (Hdr, Parameter(_, rn, t, req)) =>
-          s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
+          s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
         case (Query, Parameter(_, rn, TArr(t), req)) =>
-          s"""request.queries[${primitiveStr(t)}]("$rn")"""
+          s"""request.queries[${primitiveStr(t)}]("$rn")""" -> true
         case (Query, Parameter(_, rn, t, req)) =>
-          s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
+          s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
         case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
-      }.mkString(", ")
+      }
+
+    val rbt = RequestBodyType(e.requestBody)
+
+    val requestBodyParams = rbt match {
+      case RequestBodyType.JsonBody(n, _) => List(n -> e.requestBody.required)
+      case RequestBodyType.FormData(flds) => flds.map {
+        case (_, Field(TArr(t), rn, req)) =>
+          s"""_formData.values.params[${primitiveStr(t)}]("$rn")""" -> req
+        case (_, Field(t, rn, req)) =>
+          s"""_formData.values.param${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
+      }
+      case RequestBodyType.Raw(_) => List("request.body" -> e.requestBody.required)
+      case RequestBodyType.Empty => Nil
+    }
+    val paramStr = {
+      val (req, opt) = (params ++ requestBodyParams).partition(_._2)
+      (req ++ opt).map(_._1).mkString(", ")
+    }
 
     val apiCall = s"api.${e.name.get}${if (paramStr.isEmpty) "" else s"($paramStr)"}"
 
@@ -70,17 +86,28 @@ object Http4sServer {
           List("}")
         ).flatten
     }
-    val apiCallWithBody = e.parameters.find(_._1 == Body) match {
-      case None => apiWithExtractor
-      case Some((_, Parameter(n, rn, t, true))) =>
+    val apiCallWithBody = rbt match {
+      case RequestBodyType.JsonBody(n, t) if e.requestBody.required =>
         val decoder = s"Helpers.circeEntityDecoder[F, ${typeStr(t)}]"
         List(
           List(s"request.decodeWith($decoder, true)($n => "),
           apiWithExtractor.map("  " + _),
           List(")")
         ).flatten
-      case Some((_, Parameter(_, _, _, false))) =>
-        throw new Exception("optional body isn't expected!")
+      case RequestBodyType.JsonBody(n, t) =>
+        List(
+          List(s"request.decodeJsonOpt[${typeStr(t)}]($n => "),
+          apiWithExtractor.map("  " + _),
+          List(")")
+        ).flatten
+      case RequestBodyType.FormData(_) =>
+        val decoder = s"http4s.UrlForm.entityDecoder[F]"
+        List(
+          List(s"request.decodeWith($decoder, true)(_formData => "),
+          apiWithExtractor.map("  " + _),
+          List(")")
+        ).flatten
+      case _ => apiWithExtractor
     }
 
     s"case Method.${m.toString.toUpperCase} =>" :: apiCallWithBody.map("  " + _)
@@ -117,10 +144,11 @@ object Http4sServer {
         "import api4s.runtime.Endpoint",
         "import api4s.runtime.Endpoint.RoutingErrorAlgebra",
         "import api4s.runtime.internal.Helpers",
-        "import api4s.runtime.internal.Helpers.RichRequest",
+        "import api4s.runtime.internal.Helpers.{ RichRequest, RichUrlForm }",
         "import api4s.runtime.outputs._",
         "import cats.effect.Sync",
         "import org.http4s.{ Method, Request, Response, Status }",
+        "import org.http4s",
         "import shapeless.{ Inl, Inr }",
         "",
         s"import $pkg.Model._",

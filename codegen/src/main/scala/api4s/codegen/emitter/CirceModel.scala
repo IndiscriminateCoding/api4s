@@ -33,9 +33,9 @@ object CirceModel {
   private def typeDef(n: String, t: Type): List[String] = t match {
     case TObj(fields) =>
       val fieldStrs = fields.map {
-        case (n, Field(t @ TArr(_), true)) => s"  $n: ${typeStr(t)} = Nil"
-        case (n, Field(t, true)) => s"  $n: ${typeStr(t)}"
-        case (n, Field(t, false)) => s"  $n: Option[${typeStr(t)}] = None"
+        case (n, Field(t @ TArr(_), _, true)) => s"  $n: ${typeStr(t)} = Nil"
+        case (n, Field(t, _, true)) => s"  $n: ${typeStr(t)}"
+        case (n, Field(t, _, false)) => s"  $n: Option[${typeStr(t)}] = None"
       }.toList match {
         case Nil => Nil
         case List(e) => List(e)

@@ -11,7 +11,8 @@ object Http4sClient {
 
     def addToString(t: Type): String = t match {
       case TString() => ""
-      case _ => ".toString"
+      case TInt() | TLong() | TBool() => ".toString"
+      case _ => throw new Exception(s"can't convert type $t to String")
     }
 
     val params = e.parameters flatMap {
@@ -36,19 +37,45 @@ object Http4sClient {
       case Segment.Static(s) => s
       case Segment.Argument(p) => s"$$$p"
     }.mkString("/")
-    val body = e.parameters.filter { case (pt, _) => pt == Body || pt == FormData }
-    val encoder = body match {
-      case (Body, Parameter(n, rn, t, true)) :: Nil => List(
+
+    val rbt = RequestBodyType(e.requestBody)
+
+    val encoder = rbt match {
+      case RequestBodyType.Empty => Nil
+      case RequestBodyType.Raw(_) => Nil
+      case RequestBodyType.JsonBody(n, t) =>
+        val hdrs =
+          if (e.requestBody.required) "_headers ++= _encoder.headers.toList"
+          else s"$n foreach (_ => _headers ++= _encoder.headers.toList)"
+
+        List(
         s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]",
-        "_headers ++= _encoder.headers.toList"
+          hdrs
       )
-      case _ => Nil
+      case RequestBodyType.FormData(flds) =>
+        val (requiredFormData, optFormData) = flds.partition(_._2.required)
+        val requiredFormParams = requiredFormData.map {
+          case (n, Field(t, rn, _)) => s""""$rn" -> $n${addToString(t)}"""
+        }.mkString(", ")
+        val optFormParams = optFormData.map {
+          case (n, Field(t, rn, _)) =>
+            s"""$n foreach (x => _formData += "$rn" -> x${addToString(t)})"""
+        }
+
+        List(
+          s"val _formData = mutable.Buffer[(String, String)]($requiredFormParams)",
+          "val _encoder = http4s.UrlForm.entityEncoder[F]",
+          "_headers ++= _encoder.headers.toList"
+        ) ++ optFormParams
     }
-    val bodyStr = body match {
-      case (FormData, Parameter("formData", _, TBinary(), _)) :: Nil => List("body = formData,")
-      case (Body, Parameter(n, rn, t, true)) :: Nil => List(s"body = _encoder.toEntity($n).body,")
-      case Nil => Nil
-      case ps => throw new Exception(s"Unexpected Body/FormData parameters in ${e.name}: $ps")
+    val bodyStr = rbt match {
+      case RequestBodyType.Empty => Nil
+      case RequestBodyType.Raw(n) => List(s"body = $n, ")
+      case RequestBodyType.JsonBody(n, _) if !e.requestBody.required =>
+        List(s"body = $n.fold[Stream[F, Byte]](Stream.empty)(_encoder.toEntity(_).body),")
+      case RequestBodyType.JsonBody(n, _) => List(s"body = _encoder.toEntity($n).body,")
+      case RequestBodyType.FormData(_) =>
+        List(s"body = _encoder.toEntity(http4s.UrlForm(_formData: _*)).body,")
     }
     val responseType = ResponseType(e.responses)
 
@@ -60,9 +87,9 @@ object Http4sClient {
       }
 
       def one(s: String, t: Option[(MediaType, Type)]): String = t match {
-        case Some((mt, _)) if rs.length == 1 && isGeneric(mt) =>
+        case Some((mt, _)) if rs.length == 1 && isBinary(mt) =>
           s"case Status.$s => F.pure(r.body)"
-        case Some((mt, _)) if isGeneric(mt) =>
+        case Some((mt, _)) if isBinary(mt) =>
           s"case Status.$s => F.map(r.body)(x => Coproduct[${responseType.plain}]($s(x)))"
         case t @ Some((mt, _)) if rs.length == 1 =>
           s"case Status.$s => r.as[${typeStr(t)}](F, ${decoderStr(mt)})"

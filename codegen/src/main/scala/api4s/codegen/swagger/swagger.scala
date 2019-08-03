@@ -1,14 +1,17 @@
 package api4s.codegen.swagger
 
 import api4s.codegen.Utils._
+import api4s.codegen.ast.Type.TBinary
 import api4s.codegen.ast.{ Parameter => Param, Response => Resp, _ }
+import api4s.codegen.emitter.Utils._
 import io.circe.Json
-import org.http4s.{ MediaRange, MediaType }
+import org.http4s.MediaRange
 
 import scala.collection.immutable.{ ListMap, SortedMap }
 
 case class Root(
   basePath: Option[String],
+  consumes: Option[List[String]],
   produces: Option[List[String]],
   paths: Option[ListMap[String, PathItem]],
   definitions: Option[ListMap[String, Schema]],
@@ -35,6 +38,7 @@ case class Root(
     .mapValueList(_.resolve(
       responses.getOrElse(ListMap.empty),
       parameters.getOrElse(ListMap.empty),
+      consumes,
       produces
     ))
 
@@ -99,23 +103,24 @@ case class PathItem(
   def resolve(
     rs: ListMap[String, Response],
     ps: ListMap[String, Parameter],
+    c: Option[List[String]],
     p: Option[List[String]]
   ): PathItem =
     insertParameters.copy(
       get = insertParameters.get
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       post = insertParameters.post
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       put = insertParameters.put
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       delete = insertParameters.delete
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       options = insertParameters.options
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       head = insertParameters.head
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
       patch = insertParameters.patch
-        .map(_.resolveParameters(ps).resolveResponses(rs).addProduces(p)),
+        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
     )
 
   def endpoints: ListMap[Method, Endpoint] = ListMap(List(
@@ -131,13 +136,15 @@ case class PathItem(
 
 case class Operation(
   operationId: Option[String],
+  consumes: Option[List[String]],
   produces: Option[List[String]],
   parameters: Option[List[Parameter]],
   responses: SortedMap[String, Response] // may contain default; at least one element
 ) {
   require(responses.nonEmpty, s"responses object is empty: $this")
 
-  def addProduces(p: Option[List[String]]): Operation = this.copy(
+  def addMediaTypes(c: Option[List[String]], p: Option[List[String]]): Operation = this.copy(
+    consumes = consumes.orElse(c),
     produces = produces.orElse(p)
   )
 
@@ -166,38 +173,74 @@ case class Operation(
   )
 
   def endpoint: Endpoint = {
-    val params = parameters.getOrElse(Nil).map {
-      case p if p.in.contains("header") => ParameterType.Hdr -> p.param
-      case p if p.in.contains("body") => ParameterType.Body -> p.param
-      case p if p.in.contains("formData") => ParameterType.FormData -> p.param
-      case p if p.in.contains("query") => ParameterType.Query -> p.param
-      case p if p.in.contains("path") => ParameterType.Path -> p.param
-      case p => throw new IllegalArgumentException(s"Unexpected parameter $p")
+    val params = parameters.getOrElse(Nil).flatMap {
+      case p if p.in.contains("header") => Some(ParameterType.Hdr -> p.param)
+      case p if p.in.contains("query") => Some(ParameterType.Query -> p.param)
+      case p if p.in.contains("path") => Some(ParameterType.Path -> p.param)
+      case p => None
     }
 
-    val mediaTypes = produces
-      .getOrElse(List("application/json"))
-      .map(mt => MediaRange.parse(mt) match {
-        case Left(e) => throw e
-        case Right(r) => r
-      })
+    val requestBody = {
+      val body = parameters.getOrElse(Nil).find(_.in.contains("body")).map(_.param)
+      val form = parameters.getOrElse(Nil).filter(_.in.contains("formData")).map(_.param)
+      val required = body.exists(_.required) || form.nonEmpty
+      val consumeList = consumes.getOrElse(Nil) match {
+        case Nil if body.nonEmpty => List("application/json")
+        case Nil if form.nonEmpty => List("application/x-www-form-urlencoded")
+        case cs => cs
+      }
 
-    def mediaTypeMap(r: Resp): ListMap[MediaRange, Resp] = ListMap(mediaTypes.map(_ -> r): _*)
+      val mediaRanges: ListMap[MediaRange, Type] = ListMap(consumeList
+        .flatMap { c =>
+          val mr = MediaRange.parse(c) match {
+            case Left(e) => throw e
+            case Right(r) => r
+          }
+          val t = () match {
+            case _ if isFormData(mr) && form.isEmpty => None
+            case _ if isFormData(mr) && form.nonEmpty =>
+              val flds = form.map { p =>
+                p.name -> Type.Field(p.t, p.name, p.required)
+              }
+              Some(Type.TObj(ListMap(flds: _*)))
+            case _ if form.nonEmpty => Some(TBinary())
+            case _ => body.map(_.t)
+          }
 
-    val resps = responses map {
-      case ("default", r) =>
-        None -> mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
-      case (c, r) =>
-        try {
-          Some(c.toInt) ->
-            mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
-        } catch {
-          case _: NumberFormatException =>
-            throw new IllegalArgumentException(s"incorrect response '$r'")
-        }
+          t.map(mr -> _)
+        }: _*
+      )
+
+      RequestBody(name = body.map(_.name), ranges = mediaRanges, required = required)
     }
+
+    val resps = {
+      val mediaTypes = produces
+        .getOrElse(List("application/json"))
+        .map(mt => MediaRange.parse(mt) match {
+          case Left(e) => throw e
+          case Right(r) => r
+        })
+
+      def mediaTypeMap(r: Resp): ListMap[MediaRange, Resp] = ListMap(mediaTypes.map(_ -> r): _*)
+
+      responses map {
+        case ("default", r) =>
+          None -> mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
+        case (c, r) =>
+          try {
+            Some(c.toInt) ->
+              mediaTypeMap(Resp(r.schema.map(_.getType), r.headers.exists(_.nonEmpty)))
+          } catch {
+            case _: NumberFormatException =>
+              throw new IllegalArgumentException(s"incorrect response '$r'")
+          }
+      }
+    }
+
     Endpoint(
       name = operationId,
+      requestBody = requestBody,
       parameters = params,
       responses = resps
     )
@@ -273,7 +316,7 @@ case class Schema(
       && properties.nonEmpty =>
       val props = properties.get
         .map { case (k, v) =>
-          k -> Type.Field(v.getType, required.exists(_.contains(k)))
+          k -> Type.Field(v.getType, k, required.exists(_.contains(k)))
         }
       Type.TObj(props)
     case _ if `type`.contains("object")

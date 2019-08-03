@@ -8,7 +8,7 @@ object ReorderParams {
     ts.mapValueList {
       case Type.TObj(fields) =>
         val (required, optional) = fields.partition {
-          case (_, Type.Field(Type.TArr(_), _)) => false
+          case (_, Type.Field(Type.TArr(_), _, _)) => false
           case (_, f) => f.required
         }
         Type.TObj(required ++ optional)
@@ -24,6 +24,6 @@ object ReorderParams {
 
   def apply(api: Api): Api = Api(
     types = reorderTypeParams(api.types),
-    endpoints = api.endpoints.mapValueList(_.mapValueList(reorderEndpointParams))
+    endpoints = api.endpoints //api.endpoints.mapValueList(_.mapValueList(reorderEndpointParams))
   )
 }

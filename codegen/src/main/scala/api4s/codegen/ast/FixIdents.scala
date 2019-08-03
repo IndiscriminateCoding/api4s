@@ -4,6 +4,8 @@ import api4s.codegen.Utils._
 import api4s.codegen.ast.Segment._
 import api4s.codegen.ast.Type._
 
+import scala.collection.immutable.ListMap
+
 object FixIdents {
   private class IDFactory(pref: String) {
     private[this] var idx = -1
@@ -45,7 +47,7 @@ object FixIdents {
     "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
     "Inl", "Inr",
 
-    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint",
+    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "RichUrlForm", "Endpoint",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api",
 
@@ -100,10 +102,21 @@ object FixIdents {
       }
       val nmethods = methods mapValueList { ep =>
         val paramNames = new IDFactory("param")
-        ep.copy(
+        Endpoint(
           name =
             if (ep.name.exists(n => allowedLower(n) && opNames.allowed(n))) ep.name
             else Some(opNames(ep.name.getOrElse("-"))),
+          requestBody = RequestBody(
+            name = ep.requestBody.name,
+            ranges = ep.requestBody.ranges.mapValueList {
+              case TObj(flds) => TObj(ListMap(flds.toList.map {
+                case (k, v) if !allowedLower(k) || !paramNames.allowed(k) => paramNames(k) -> v
+                case fld => fld
+              }: _*))
+              case t => t
+            },
+            required = ep.requestBody.required
+          ),
           parameters = ep.parameters.map {
             case (ParameterType.Path, p) => ParameterType.Path -> p.copy(
               name = snames.replacement(p.name),

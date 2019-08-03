@@ -2,7 +2,7 @@ package api4s.codegen.emitter
 
 import api4s.codegen.Utils._
 import api4s.codegen.ast.Type._
-import api4s.codegen.ast.{ Response, Type }
+import api4s.codegen.ast.{ RequestBody, Response, Type }
 import org.http4s.{ MediaRange, MediaType }
 
 import scala.collection.immutable.{ ListMap, SortedMap }
@@ -64,11 +64,38 @@ object Utils {
     }
   }
 
-  def isJson(mt: MediaType): Boolean = mt.mainType == "application" && mt.subType == "json"
+  sealed trait RequestBodyType
+  object RequestBodyType {
+    case object Empty extends RequestBodyType
+    case class Raw(name: String) extends RequestBodyType
+    case class FormData(flds: List[(String, Field)]) extends RequestBodyType
+    case class JsonBody(name: String, t: Type) extends RequestBodyType
 
-  def isText(mt: MediaType): Boolean = mt.mainType == "text"
+    def apply(r: RequestBody): RequestBodyType =
+      r.ranges.toList match {
+        case Nil => Empty
+        case (mr, t) :: Nil if isJson(mr) => JsonBody(r.name.get, t)
+        case (_, TObj(flds)) :: _
+          if r.ranges.keys.forall(isFormData) && r.ranges.values.toSet.size == 1 =>
+          FormData(flds.toList)
+        case _ => Raw(r.name.getOrElse("_body"))
+      }
+  }
 
-  def isGeneric(mt: MediaType): Boolean = !isJson(mt) && !isText(mt)
+  def isJson(mr: MediaRange): Boolean = mr match {
+    case mt: MediaType => mt.mainType == "application" && mt.subType == "json"
+    case _ => false
+  }
+
+  def isText(mr: MediaRange): Boolean = mr.mainType == "text"
+
+  def isBinary(mr: MediaRange): Boolean = !isJson(mr) && !isText(mr)
+
+  def isFormData(mr: MediaRange): Boolean = mr match {
+    case mt: MediaType => mt == MediaType.application.`x-www-form-urlencoded`
+    //case _ => mr.mainType == "multipart" // TODO
+    case _ => false
+  }
 
   def shapelessPat(i: Int, v: String): String =
     if (i == 0) s"Inl($v)"
@@ -88,10 +115,11 @@ object Utils {
     case TObj(_) => "Map[String, Json]"
   }
 
-  def typeStr(t: Option[(MediaRange, Type)]): String = t match {
-    case None => "Unit"
-    case Some((mt: MediaType, t)) if isJson(mt) => typeStr(t)
-    case Some((mt: MediaType, _)) if isText(mt) => typeStr(TString())
-    case Some(_) => typeStr(TBinary())
+  def typeStr(t: (MediaRange, Type)): String = t match {
+    case (mt: MediaType, t) if isJson(mt) => typeStr(t)
+    case (mt: MediaType, _) if isText(mt) => typeStr(TString())
+    case _ => typeStr(TBinary())
   }
+
+  def typeStr(t: Option[(MediaRange, Type)]): String = t.fold("Unit")(typeStr)
 }

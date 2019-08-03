@@ -11,7 +11,7 @@ case class Api(
 
 sealed trait Type
 object Type {
-  case class Field(t: Type, required: Boolean)
+  case class Field(t: Type, rn: String, required: Boolean)
 
   case class TMap(t: Type) extends Type
   case class TRef(name: String) extends Type
@@ -47,13 +47,12 @@ sealed trait ParameterType
 object ParameterType {
   case object Hdr extends ParameterType
   case object Query extends ParameterType
-  case object FormData extends ParameterType
-  case object Body extends ParameterType
   case object Path extends ParameterType
 }
 
 case class Endpoint(
   name: Option[String],
+  requestBody: RequestBody,
   parameters: List[(ParameterType, Parameter)],
   responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]
 ) {
@@ -63,6 +62,12 @@ case class Endpoint(
     case _ =>
   }
 }
+
+case class RequestBody(
+  name: Option[String],
+  ranges: ListMap[MediaRange, Type],
+  required: Boolean
+)
 
 case class Response(t: Option[Type], haveHeaders: Boolean)
 
