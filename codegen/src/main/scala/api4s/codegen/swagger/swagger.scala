@@ -4,6 +4,7 @@ import api4s.codegen.Utils._
 import api4s.codegen.ast.Type.TBinary
 import api4s.codegen.ast.{ Parameter => Param, Response => Resp, _ }
 import api4s.codegen.emitter.Utils._
+import io.circe.Decoder.Result
 import io.circe.Json
 import org.http4s.MediaRange
 
@@ -80,58 +81,57 @@ object Root {
 }
 
 case class PathItem(
-  get: Option[Operation],
-  post: Option[Operation],
-  put: Option[Operation],
-  delete: Option[Operation],
-  options: Option[Operation],
-  head: Option[Operation],
-  patch: Option[Operation],
+  ops: ListMap[Method, Operation],
   parameters: Option[List[Parameter]]
 ) {
-  private[this] lazy val insertParameters: PathItem = PathItem(
-    get = get.map(_.addParameters(parameters)),
-    post = post.map(_.addParameters(parameters)),
-    put = put.map(_.addParameters(parameters)),
-    delete = delete.map(_.addParameters(parameters)),
-    options = options.map(_.addParameters(parameters)),
-    head = head.map(_.addParameters(parameters)),
-    patch = patch.map(_.addParameters(parameters)),
-    parameters = None
-  )
-
   def resolve(
     rs: ListMap[String, Response],
     ps: ListMap[String, Parameter],
     c: Option[List[String]],
     p: Option[List[String]]
-  ): PathItem =
-    insertParameters.copy(
-      get = insertParameters.get
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      post = insertParameters.post
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      put = insertParameters.put
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      delete = insertParameters.delete
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      options = insertParameters.options
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      head = insertParameters.head
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-      patch = insertParameters.patch
-        .map(_.resolveParameters(ps).resolveResponses(rs).addMediaTypes(c, p)),
-    )
+  ): PathItem = PathItem(
+    ops = ops.mapValueList(_.resolveResponses(rs).resolveParameters(ps).addMediaTypes(c, p)),
+    parameters = parameters
+  )
 
-  def endpoints: ListMap[Method, Endpoint] = ListMap(List(
-    get.map(Method.Get -> _.endpoint),
-    post.map(Method.Post -> _.endpoint),
-    put.map(Method.Put -> _.endpoint),
-    delete.map(Method.Delete -> _.endpoint),
-    options.map(Method.Options -> _.endpoint),
-    head.map(Method.Head -> _.endpoint),
-    patch.map(Method.Patch -> _.endpoint)
-  ).filter(_.nonEmpty).map(_.get): _*)
+  def endpoints: ListMap[Method, Endpoint] = ops.mapValueList(_.endpoint)
+}
+
+object PathItem {
+  import io.circe._
+
+  private val methodOfString: PartialFunction[String, Method] = {
+    case "get" => Method.Get
+    case "post" => Method.Post
+    case "put" => Method.Put
+    case "delete" => Method.Delete
+    case "options" => Method.Options
+    case "head" => Method.Head
+    case "patch" => Method.Patch
+  }
+
+  implicit val pathItemDecoder: Decoder[PathItem] = new Decoder[PathItem] {
+    import cats.instances.all._
+    import cats.syntax.traverse._
+    import io.circe.generic.auto._
+
+    def apply(c: HCursor): Result[PathItem] = for {
+      flds <- Decoder[ListMap[String, Json]].apply(c)
+      ps <- flds.get("parameters") match {
+        case None => Right(None)
+        case Some(ps) => ps.as[List[Parameter]].map(Some(_))
+      }
+      ops <- flds
+        .filterKeys(k => methodOfString.isDefinedAt(k.toLowerCase))
+        .toList
+        .traverse[Result, (Method, Operation)] { case (k, v) =>
+          v.as[Operation].map(methodOfString(k) -> _)
+        }
+    } yield PathItem(
+      ops = ListMap(ops: _*),
+      parameters = ps
+    )
+  }
 }
 
 case class Operation(
