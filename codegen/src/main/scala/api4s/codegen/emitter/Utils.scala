@@ -10,19 +10,15 @@ import scala.collection.immutable.{ ListMap, SortedMap }
 object Utils {
   sealed trait ResponseType {
     def plain: String
-    def lifted: String
+    def lifted: String = s"F[$plain]"
   }
 
   object ResponseType {
     case object Untyped extends ResponseType {
-      def plain = "Resource[F, Response[F]]"
-
-      def lifted: String = plain
+      def plain = "Response[F]"
     }
     case class Specific(status: String, t: Option[(MediaType, Type)]) extends ResponseType {
       def plain: String = typeStr(t)
-
-      def lifted = s"F[$plain]"
     }
     case class Multi(rs: ListMap[String, Option[(MediaType, Type)]]) extends ResponseType {
       def plain: String = s"${
@@ -31,8 +27,6 @@ object Utils {
           case (s, t) => s"$s[${typeStr(t)}]"
         }.mkString(" :+: ")
       } :+: CNil"
-
-      def lifted = s"F[$plain]"
     }
 
     def apply(rs: SortedMap[Option[Int], ListMap[MediaRange, Response]]): ResponseType = {

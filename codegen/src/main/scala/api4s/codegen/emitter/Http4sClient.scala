@@ -110,7 +110,11 @@ object Http4sClient {
     }
 
     val run = ResponseType(e.responses) match {
-      case ResponseType.Untyped => List(s"client.run(_request)")
+      case ResponseType.Untyped => List(
+        "F.map(client.run(_request).allocated){",
+        "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
+        "}"
+      )
       case ResponseType.Specific(status, t) => runOn(List(status -> t))
       case ResponseType.Multi(rs) => runOn(rs.toList)
     }

@@ -67,9 +67,7 @@ object Http4sServer {
     }
 
     val apiWithExtractor = ResponseType(e.responses) match {
-      case ResponseType.Untyped => List(
-        s"F.map($apiCall.allocated){ case (x, r) => x.withBodyStream(x.body.onFinalize(r)) }"
-      )
+      case ResponseType.Untyped => List(apiCall)
       case ResponseType.Specific(c, t @ None) =>
         List(s"F.map($apiCall)(_ => ${responseMapperStr(c, t)})")
       case ResponseType.Specific(c, t @ Some(_)) =>
