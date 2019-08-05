@@ -56,6 +56,7 @@ object Utils {
 
       rs2xx match {
         case Nil => Untyped
+        case _ if rs.values.exists(_.values.exists(_.haveHeaders)) => Untyped
         case rs if rs.exists(_._2.size > 1) => Untyped
         case rs if rs.exists(_._2.exists(!_._1.isInstanceOf[MediaType])) => Untyped
         case (s, t) :: Nil => Specific(s, toMt(t))
