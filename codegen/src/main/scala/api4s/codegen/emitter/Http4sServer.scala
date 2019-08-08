@@ -88,7 +88,7 @@ object Http4sServer {
       case RequestBodyType.JsonBody(n, t) if e.requestBody.required =>
         val decoder = s"Helpers.circeEntityDecoder[F, ${typeStr(t)}]"
         List(
-          List(s"request.decodeWith($decoder, true)($n => "),
+          List(s"request.decodeWith($decoder, true)($n =>"),
           apiWithExtractor.map("  " + _),
           List(")")
         ).flatten
