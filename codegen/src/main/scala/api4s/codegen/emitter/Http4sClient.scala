@@ -31,7 +31,7 @@ object Http4sClient {
     val requiredHdrParams = e.parameters.filter {
       case (pt, p) => pt == Hdr && p.required
     }.map {
-      case (_, Parameter(n, rn, t, _)) => s"""Header("$rn", $n${addToString(t)})"""
+      case (_, Parameter(n, rn, t, _)) => s"""http4s.Header("$rn", $n${addToString(t)})"""
     }.mkString(", ")
     val path = segments.map {
       case Segment.Static(s) => s
