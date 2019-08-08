@@ -90,8 +90,13 @@ case class PathItem(
     c: Option[List[String]],
     p: Option[List[String]]
   ): PathItem = PathItem(
-    ops = ops.mapValueList(_.resolveResponses(rs).resolveParameters(ps).addMediaTypes(c, p)),
-    parameters = parameters
+    ops = ops.mapValueList(_
+      .addParameters(parameters)
+      .resolveResponses(rs)
+      .resolveParameters(ps)
+      .addMediaTypes(c, p)
+    ),
+    parameters = None
   )
 
   def endpoints: ListMap[Method, Endpoint] = ops.mapValueList(_.endpoint)
