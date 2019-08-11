@@ -20,7 +20,9 @@ object Http4sClient {
         List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
       case (Query(rn), Parameter(n, t, false)) =>
         List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
-      case (pt, p) => Nil
+      case (Hdr(rn), Parameter(n, t, false)) =>
+        List(s"""$n foreach (x => _headers += http4s.Header("$rn", x${addToString(t)}))""")
+      case _ => Nil
     }
     val requiredQueryParams = e.parameters.filter {
       case (Query(_), Parameter(_, TArr(_), _)) => false

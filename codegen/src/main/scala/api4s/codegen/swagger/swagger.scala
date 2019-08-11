@@ -57,7 +57,7 @@ case class Root(
         val endpoints = item.endpoints
         endpoints.values foreach { e =>
           val pathParams = e.parameters.filter(_._1 == ParameterType.Path).map(_._2).toSet
-          require(params == pathParams.map(_.name),
+          require(params == pathParams.map(_.name) && pathParams.forall(_.name.nonEmpty),
             s"Incompatible type parameters: ${e.name} $path / $pathParams")
         }
         segments -> endpoints
