@@ -7,14 +7,14 @@ import api4s.codegen.emitter.Utils._
 object ClientServerApi {
   private def params(ps: List[(ParameterType, Parameter)]): List[(Boolean, String, Type)] =
     ps map {
-      case (ParameterType.Query, Parameter(n, _, t @ TArr(_), false)) => (true, n, t)
+      case (ParameterType.Query(_), Parameter(n, t @ TArr(_), false)) => (true, n, t)
       case (_, p) => (p.required, p.name, p.t)
     }
 
   private def requestBodyParams(r: RequestBody): List[(Boolean, String, Type)] =
     RequestBodyType(r) match {
       case RequestBodyType.Empty => Nil
-      case RequestBodyType.Raw(n) => List((r.required, n, TBinary()))
+      case RequestBodyType.Raw(n) => List((r.required, n, TBinary))
       case RequestBodyType.JsonBody(n, t) => List((r.required, n, t))
       case RequestBodyType.FormData(flds) => flds map {
         case (n, Field(t, _, req)) => (req, n, t)

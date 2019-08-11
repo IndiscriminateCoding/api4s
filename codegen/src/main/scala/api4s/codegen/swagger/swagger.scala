@@ -179,8 +179,8 @@ case class Operation(
 
   def endpoint: Endpoint = {
     val params = parameters.getOrElse(Nil).flatMap {
-      case p if p.in.contains("header") => Some(ParameterType.Hdr -> p.param)
-      case p if p.in.contains("query") => Some(ParameterType.Query -> p.param)
+      case p if p.in.contains("header") => Some(ParameterType.Hdr(p.name.get) -> p.param)
+      case p if p.in.contains("query") => Some(ParameterType.Query(p.name.get) -> p.param)
       case p if p.in.contains("path") => Some(ParameterType.Path -> p.param)
       case p => None
     }
@@ -208,7 +208,7 @@ case class Operation(
                 p.name -> Type.Field(p.t, p.name, p.required)
               }
               Some(Type.TObj(ListMap(flds: _*)))
-            case _ if form.nonEmpty => Some(TBinary())
+            case _ if form.nonEmpty => Some(TBinary)
             case _ => body.map(_.t)
           }
 
@@ -267,24 +267,24 @@ case class Parameter(
 ) {
   // TODO: items: Option[Items]
   def getType: Type = () match {
-    case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt()
-    case _ if `type`.contains("integer") => Type.TLong()
-    case _ if `type`.contains("number") => Type.TNum()
-    case _ if `type`.contains("string") => Type.TString()
-    case _ if `type`.contains("boolean") => Type.TBool()
+    case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt
+    case _ if `type`.contains("integer") => Type.TLong
+    case _ if `type`.contains("number") => Type.TNum
+    case _ if `type`.contains("string") => Type.TString
+    case _ if `type`.contains("boolean") => Type.TBool
     case _ if `type`.contains("array") && collectionFormat.contains("multi") && items.nonEmpty =>
       Type.TArr(items.get.getType)
     case _ if `type`.contains("array") && collectionFormat.contains("multi") =>
-      Type.TArr(Type.TString())
-    case _ if `type`.contains("array") && !in.contains("body") => Type.TString()
+      Type.TArr(Type.TString)
+    case _ if `type`.contains("array") && !in.contains("body") => Type.TString
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
-    case _ if `type`.contains("array") => Type.TArr(Type.TJson())
-    case _ if `type`.contains("file") => Type.TBinary()
+    case _ if `type`.contains("array") => Type.TArr(Type.TJson)
+    case _ if `type`.contains("file") => Type.TBinary
     case _ if schema.nonEmpty => schema.get.getType
     case _ => throw new IllegalArgumentException(s"incorrect parameter: $this")
   }
 
-  def param: Param = Param(name.get, name.get, getType, required.getOrElse(false))
+  def param: Param = Param(name.get, getType, required.getOrElse(false))
 }
 
 case class Response(
@@ -307,14 +307,14 @@ case class Schema(
 ) {
   def getType: Type = () match {
     case _ if $ref.nonEmpty => Type.TRef($ref.get.stripPrefix("#/definitions/"))
-    case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt()
-    case _ if `type`.contains("integer") => Type.TLong()
-    case _ if `type`.contains("number") => Type.TNum()
-    case _ if `type`.contains("string") => Type.TString()
-    case _ if `type`.contains("boolean") => Type.TBool()
+    case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt
+    case _ if `type`.contains("integer") => Type.TLong
+    case _ if `type`.contains("number") => Type.TNum
+    case _ if `type`.contains("string") => Type.TString
+    case _ if `type`.contains("boolean") => Type.TBool
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
-    case _ if `type`.contains("array") => Type.TArr(Type.TJson())
-    case _ if `type`.contains("file") => Type.TBinary()
+    case _ if `type`.contains("array") => Type.TArr(Type.TJson)
+    case _ if `type`.contains("file") => Type.TBinary
     case _ if `type`.contains("object")
       && additionalProperties.isEmpty
       && allOf.isEmpty
@@ -338,8 +338,8 @@ case class Schema(
       }
       Type.TObj(fields)
     case _ if `type`.contains("object") && properties.isEmpty && additionalProperties.isEmpty =>
-      Type.TMap(Type.TJson())
-    case _ if `type`.isEmpty => Type.TJson()
+      Type.TMap(Type.TJson)
+    case _ if `type`.isEmpty => Type.TJson
     case _ => throw new IllegalArgumentException(s"incorrect schema: $this")
   }
 }

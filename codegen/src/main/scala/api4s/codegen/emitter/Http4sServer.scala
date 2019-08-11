@@ -12,7 +12,7 @@ object Http4sServer {
     import ParameterType._
     import Type._
 
-    val primitives = Set[Type](TString(), TInt(), TLong(), TBool())
+    val primitives = Set[Type](TString, TInt, TLong, TBool)
 
     def primitiveStr(t: Type): String =
       if (primitives(t)) typeStr(t)
@@ -20,14 +20,14 @@ object Http4sServer {
 
     val params = e.parameters
       .map {
-        case (Path, Parameter(n, _, TString(), true)) => n -> true
-        case (Path, Parameter(n, _, t, true)) =>
+        case (Path, Parameter(n, TString, true)) => n -> true
+        case (Path, Parameter(n, t, true)) =>
           s"Helpers.parser[${primitiveStr(t)}].required($n)" -> true
-        case (Hdr, Parameter(_, rn, t, req)) =>
+        case (Hdr(rn), Parameter(_, t, req)) =>
           s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
-        case (Query, Parameter(_, rn, TArr(t), req)) =>
+        case (Query(rn), Parameter(_, TArr(t), _)) =>
           s"""request.queries[${primitiveStr(t)}]("$rn")""" -> true
-        case (Query, Parameter(_, rn, t, req)) =>
+        case (Query(rn), Parameter(_, t, req)) =>
           s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
         case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
       }

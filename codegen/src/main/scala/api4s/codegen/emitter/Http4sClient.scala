@@ -10,28 +10,32 @@ object Http4sClient {
     import ParameterType._
 
     def addToString(t: Type): String = t match {
-      case TString() => ""
-      case TInt() | TLong() | TBool() => ".toString"
+      case TString => ""
+      case TInt | TLong | TBool => ".toString"
       case _ => throw new Exception(s"can't convert type $t to String")
     }
 
     val params = e.parameters flatMap {
-      case (Query, Parameter(n, rn, TArr(t), _)) =>
+      case (Query(rn), Parameter(n, TArr(t), _)) =>
         List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
-      case (Query, Parameter(n, rn, t, false)) =>
+      case (Query(rn), Parameter(n, t, false)) =>
         List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
       case (pt, p) => Nil
     }
     val requiredQueryParams = e.parameters.filter {
-      case (Query, Parameter(_, _, TArr(_), _)) => false
-      case (pt, p) => pt == Query && p.required
+      case (Query(_), Parameter(_, TArr(_), _)) => false
+      case (Query(_), p) => p.required
+      case _ => false
     }.map {
-      case (_, Parameter(n, rn, t, _)) => s""""$rn" -> Some($n${addToString(t)})"""
+      case (Query(rn), Parameter(n, t, _)) => s""""$rn" -> Some($n${addToString(t)})"""
+      case _ => throw new Exception("never happens")
     }.mkString(", ")
     val requiredHdrParams = e.parameters.filter {
-      case (pt, p) => pt == Hdr && p.required
+      case (Hdr(_), p) => p.required
+      case _ => false
     }.map {
-      case (_, Parameter(n, rn, t, _)) => s"""http4s.Header("$rn", $n${addToString(t)})"""
+      case (Hdr(rn), Parameter(n, t, _)) => s"""htp4s.Header("$rn", $n${addToString(t)})"""
+      case _ => throw new Exception("never happens")
     }.mkString(", ")
     val path = segments.map {
       case Segment.Static(s) => s

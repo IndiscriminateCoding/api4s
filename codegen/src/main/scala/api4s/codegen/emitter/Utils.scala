@@ -100,20 +100,25 @@ object Utils {
     case TRef(name) => name
     case TMap(et) => s"Map[String, ${typeStr(et)}]"
     case TArr(it) => s"List[${typeStr(it)}]"
-    case TJson() => "Json"
-    case TInt() => "Int"
-    case TLong() => "Long"
-    case TNum() => "Double"
-    case TString() => "String"
-    case TBool() => "Boolean"
-    case TBinary() => "Stream[F, Byte]"
-    case TObj(_) => "Map[String, Json]"
+    case TJson => "Json"
+    case TInt => "Int"
+    case TLong => "Long"
+    case TNum => "Double"
+    case TString => "String"
+    case TBool => "Boolean"
+    case TBinary => "Stream[F, Byte]"
+    case TObj(flds) =>
+      val types = flds.values.map(_.t)
+      val fldType =
+        if (types.size == 1) typeStr(types.head)
+        else "Json"
+      s"Map[String, $fldType]"
   }
 
   def typeStr(t: (MediaRange, Type)): String = t match {
     case (mt: MediaType, t) if isJson(mt) => typeStr(t)
-    case (mt: MediaType, _) if isText(mt) => typeStr(TString())
-    case _ => typeStr(TBinary())
+    case (mt: MediaType, _) if isText(mt) => typeStr(TString)
+    case _ => typeStr(TBinary)
   }
 
   def typeStr(t: Option[(MediaRange, Type)]): String = t.fold("Unit")(typeStr)

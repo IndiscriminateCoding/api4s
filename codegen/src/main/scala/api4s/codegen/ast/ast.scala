@@ -17,13 +17,13 @@ object Type {
   case class TRef(name: String) extends Type
   case class TObj(fields: ListMap[String, Field]) extends Type
   case class TArr(items: Type) extends Type
-  case class TJson() extends Type
-  case class TInt() extends Type
-  case class TLong() extends Type
-  case class TNum() extends Type
-  case class TString() extends Type
-  case class TBool() extends Type
-  case class TBinary() extends Type
+  case object TJson extends Type
+  case object TInt extends Type
+  case object TLong extends Type
+  case object TNum extends Type
+  case object TString extends Type
+  case object TBool extends Type
+  case object TBinary extends Type
 }
 
 sealed trait Method
@@ -45,8 +45,8 @@ object Segment {
 
 sealed trait ParameterType
 object ParameterType {
-  case object Hdr extends ParameterType
-  case object Query extends ParameterType
+  case class Hdr(name: String) extends ParameterType
+  case class Query(name: String) extends ParameterType
   case object Path extends ParameterType
 }
 
@@ -71,4 +71,4 @@ case class RequestBody(
 
 case class Response(t: Option[Type], haveHeaders: Boolean)
 
-case class Parameter(name: String, realName: String, t: Type, required: Boolean)
+case class Parameter(name: String, t: Type, required: Boolean)
