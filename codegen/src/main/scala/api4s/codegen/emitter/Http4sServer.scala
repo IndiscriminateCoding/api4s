@@ -122,9 +122,10 @@ object Http4sServer {
 
   def apply(pkg: String, endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]]): String = {
     val endpointList = endpoints.flatMap { case (segment, methods) =>
+      val allowed = methods.keys.map(m => s"Method.${m.toString.toUpperCase}").mkString(", ")
       val methodList = methods
         .flatMap { case (m, e) => methodMatcher(m, e) }
-        .toList :+ "case _ => RoutingErrorAlgebra.methodNotAllowed"
+        .toList :+ s"case _ => RoutingErrorAlgebra.methodNotAllowed($allowed)"
 
       List(
         List(segmentsMatcher(segment)),
@@ -154,7 +155,9 @@ object Http4sServer {
         "class Http4sServer[F[_]](api: Api[F])(implicit F: Sync[F]) extends Endpoint[F] {",
         "  protected def apply(req: Request[F])(R: RoutingErrorAlgebra[F]): F[Response[F]] =",
         "    try { _apply(req)(R) }",
-        "    catch { case Helpers.RequestValidationError => R.badRequest }",
+        "    catch { case Helpers.RequestValidationError =>",
+        "      F.pure(Response(status = Status.BadRequest))",
+        "    }",
         "",
         "  private[this] def _apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",

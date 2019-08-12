@@ -11,17 +11,14 @@ trait Endpoint[F[_]] { self =>
   final def orElse(other: Endpoint[F]): Endpoint[F] = new Endpoint[F] {
     def apply(request: Request[F])(R: RoutingErrorAlgebra[F]): F[Response[F]] =
       self(request)(new RoutingErrorAlgebra[F] {
-        def methodNotAllowed: F[Response[F]] = other(request)(new RoutingErrorAlgebra[F] {
-          def methodNotAllowed: F[Response[F]] = R.methodNotAllowed
+        def methodNotAllowed(a: Set[Method]): F[Response[F]] =
+          other(request)(new RoutingErrorAlgebra[F] {
+            def methodNotAllowed(b: Set[Method]): F[Response[F]] = R.methodNotAllowed(a ++ b)
 
-          def notFound: F[Response[F]] = R.methodNotAllowed
-
-          def badRequest: F[Response[F]] = R.badRequest
-        })
+            def notFound: F[Response[F]] = R.methodNotAllowed(a)
+          })
 
         def notFound: F[Response[F]] = other(request)(R)
-
-        def badRequest: F[Response[F]] = R.badRequest
       })
   }
 
@@ -29,18 +26,21 @@ trait Endpoint[F[_]] { self =>
 
   final def run(r: Request[F])(implicit F: Applicative[F]): F[Response[F]] =
     apply(r)(new RoutingErrorAlgebra[F] {
-      def methodNotAllowed: F[Response[F]] = F.pure(Response(status = Status.MethodNotAllowed))
+      def methodNotAllowed(allowed: Set[Method]): F[Response[F]] = F.pure(Response(
+        headers = Headers.of(Header("Allow", allowed.mkString(", "))),
+        status = Status.MethodNotAllowed
+      ))
 
       def notFound: F[Response[F]] = F.pure(Response(status = Status.NotFound))
-
-      def badRequest: F[Response[F]] = F.pure(Response(status = Status.BadRequest))
     })
 }
 
 object Endpoint {
   trait RoutingErrorAlgebra[F[_]] {
-    def methodNotAllowed: F[Response[F]]
+    def methodNotAllowed(allowed: Set[Method]): F[Response[F]]
+
     def notFound: F[Response[F]]
-    def badRequest: F[Response[F]]
+
+    final def methodNotAllowed(allowed: Method*): F[Response[F]] = methodNotAllowed(allowed.toSet)
   }
 }
