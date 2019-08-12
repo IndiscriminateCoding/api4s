@@ -53,7 +53,7 @@ object FixIdents {
 
     def parts(s: String): String =
       s.map {
-        case c if !c.isLetter => '-'
+        case c if !c.isLetter && !c.isDigit => '-'
         case c => c
       }.split('-').filter(_.nonEmpty).map(uppercased).mkString
 
@@ -63,20 +63,21 @@ object FixIdents {
         else {
           val ps = {
             val res = parts(s)
-            if (res.nonEmpty) res
-            else prefix
+            if (res.nonEmpty && !res.charAt(0).isDigit) res
+            else prefix + res
           }
           val str = if (lowercase) lowercased(ps) else uppercased(s)
 
+          @scala.annotation.tailrec
           def findFree(s: String, idx: Long): String = {
             val si = s"$s$idx"
             if (replacements.exists(_._2 == si)) findFree(s, idx + 1)
             else si
           }
 
-          val re = raw"(\d{0,4})(.*)".r
+          val re = raw"(\d{0,8})(.*)".r
           str.reverse match {
-            case re("", _) if !replacements.exists(_._2 == str) => str
+            case _ if !replacements.exists(_._2 == str) => str
             case re("", _) => findFree(str, 0)
             case re(idx, s) => findFree(s.reverse, idx.reverse.toLong)
             case _ => throw new Exception("never happens")

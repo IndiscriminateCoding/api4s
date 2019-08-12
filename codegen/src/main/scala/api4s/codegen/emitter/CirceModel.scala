@@ -15,7 +15,7 @@ object CirceModel {
         s"  implicit val decoderOf$n: Decoder[$n] = deriveDecoder"
       )
       case _ => Nil
-    }.map(_.mkString("\n")).mkString("\n\n")
+    }.filter(_.nonEmpty).map(_.mkString("\n")).mkString("\n\n")
     List(
       s"package $pkg",
       "",
