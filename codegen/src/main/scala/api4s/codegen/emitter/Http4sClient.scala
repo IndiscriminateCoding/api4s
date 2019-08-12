@@ -36,7 +36,7 @@ object Http4sClient {
       case (Hdr(_), p) => p.required
       case _ => false
     }.map {
-      case (Hdr(rn), Parameter(n, t, _)) => s"""htp4s.Header("$rn", $n${addToString(t)})"""
+      case (Hdr(rn), Parameter(n, t, _)) => s"""http4s.Header("$rn", $n${addToString(t)})"""
       case _ => throw new Exception("never happens")
     }.mkString(", ")
     val path = segments.map {
