@@ -7,7 +7,7 @@ import api4s.codegen.emitter.Utils._
 object ClientServerApi {
   private def convertParam(p: Parameter): String = p match {
     case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
-    case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"
+    case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}]"
   }
 
   private def convertParamDefault(p: Parameter): String = p match {
