@@ -26,7 +26,7 @@ object FixIdents {
 
     "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "RichUrlForm", "Endpoint",
 
-    "Model", "Http4sServer", "Http4sClient", "Client", "Api",
+    "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media",
 
     "Ok", "Created", "Accepted", "NoContent"
     //"BadRequest", "Unauthorized", "Forbidden", "NotFound",
@@ -132,23 +132,23 @@ object FixIdents {
         val paramNames = new Renamer("param", true)
         Endpoint(
           name = Some(opNames.fix(ep.name.getOrElse(""))),
+          parameters = ep.parameters.map {
+            case (Parameter.Path, p) => Parameter.Path -> p.copy(
+              name = snames.find(p.name),
+              t = patchType(p.t)
+            )
+            case (pt, p) => pt -> p.copy(name = paramNames.fix(p.name))
+          },
           requestBody = RequestBody(
-            name = ep.requestBody.name,
             ranges = ep.requestBody.ranges.mapValueList {
               case TObj(flds) => TObj(ListMap(flds.toList.map {
                 case (k, v) => paramNames.fix(k) -> v
               }: _*))
               case t => t
             },
+            name = ep.requestBody.name.orElse(ep.requestBody.proposedName).map(paramNames.fix),
             required = ep.requestBody.required
           ),
-          parameters = ep.parameters.map {
-            case (ParameterType.Path, p) => ParameterType.Path -> p.copy(
-              name = snames.find(p.name),
-              t = patchType(p.t)
-            )
-            case (pt, p) => pt -> p.copy(name = paramNames.fix(p.name))
-          },
           responses = ep.responses.mapValues(_.mapValueList(r => r.copy(t = r.t.map(patchType))))
         )
       }

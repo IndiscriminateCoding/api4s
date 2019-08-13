@@ -3,7 +3,7 @@ package api4s.codegen.ast
 import scala.collection.immutable.ListMap
 import api4s.codegen.Utils._
 
-object ReorderParams {
+object ReorderFields {
   private def reorderTypeParams(ts: ListMap[String, Type]): ListMap[String, Type] =
     ts.mapValueList {
       case Type.TObj(fields) =>
@@ -15,15 +15,8 @@ object ReorderParams {
       case t => t
     }
 
-  private def reorderEndpointParams(e: Endpoint): Endpoint = e.copy(
-    parameters = {
-      val (required, optional) = e.parameters.partition(_._2.required)
-      required ++ optional
-    }
-  )
-
   def apply(api: Api): Api = Api(
     types = reorderTypeParams(api.types),
-    endpoints = api.endpoints //api.endpoints.mapValueList(_.mapValueList(reorderEndpointParams))
+    endpoints = api.endpoints
   )
 }

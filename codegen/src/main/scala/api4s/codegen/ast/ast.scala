@@ -1,6 +1,6 @@
 package api4s.codegen.ast
 
-import org.http4s.MediaRange
+import org.http4s.{ MediaRange, MediaType }
 
 import scala.collection.immutable.{ ListMap, SortedMap }
 
@@ -23,7 +23,14 @@ object Type {
   case object TNum extends Type
   case object TString extends Type
   case object TBool extends Type
-  case object TBinary extends Type
+  case object TMedia extends Type
+
+  def apply(mr: MediaRange, t: Type): Type = (mr, t) match {
+    case (_, TMedia) => t
+    case (mt: MediaType, t) if MediaType.application.json.satisfiedBy(mt) => t
+    case (mr, _) if MediaRange.`text/*`.satisfiedBy(mr) => TString
+    case _ => TMedia
+  }
 }
 
 sealed trait Method
@@ -43,17 +50,21 @@ object Segment {
   case class Argument(name: String) extends Segment
 }
 
-sealed trait ParameterType
-object ParameterType {
-  case class Hdr(name: String) extends ParameterType
-  case class Query(name: String) extends ParameterType
-  case object Path extends ParameterType
+case class Parameter(name: String, t: Type, required: Boolean)
+object Parameter {
+  sealed trait Kind
+
+  case class Body(name: String) extends Kind
+  case class InlinedBody(name: String) extends Kind
+  case class Hdr(name: String) extends Kind
+  case class Query(name: String) extends Kind
+  case object Path extends Kind
 }
 
 case class Endpoint(
   name: Option[String],
   requestBody: RequestBody,
-  parameters: List[(ParameterType, Parameter)],
+  parameters: List[(Parameter.Kind, Parameter)],
   responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]
 ) {
   responses.getOrElse(Some(204), ListMap.empty) foreach {
@@ -61,14 +72,95 @@ case class Endpoint(
       throw new IllegalArgumentException(s"Non-empty 204 response for endpoint $name")
     case _ =>
   }
+
+  lazy val orderedParameters: List[(Parameter.Kind, Parameter)] = {
+    val all = parameters ++ (requestBody.consumes match {
+      case Consumes.Empty => Nil
+      case Consumes.JsonBody(name, t) =>
+        List(Parameter.Body(name) -> Parameter(name, t, requestBody.required))
+      case Consumes.Entity(name, _) =>
+        List(Parameter.Body(name) -> Parameter(name, Type.TMedia, requestBody.required))
+      case Consumes.FormData(flds) => flds.map { case (name, Type.Field(t, rn, req)) =>
+        Parameter.InlinedBody(rn) -> Parameter(name, t, req)
+      }
+    })
+    val setRequired = all map {
+      case (q @ Parameter.Query(_), Parameter(n, t @ Type.TArr(_), false)) =>
+        q -> Parameter(n, t, true)
+      case p => p
+    }
+
+    def haveDefault(p: Parameter): Boolean = p match {
+      case Parameter(_, _, false) => true
+      case Parameter(_, Type.TMedia, _) => true
+      case Parameter(_, Type.TArr(_), _) => true
+      case _ => false
+    }
+
+    val (a, b) = setRequired.partition { case (_, p) => haveDefault(p) }
+
+    b ++ a
+  }
+
+  lazy val produces: Produces = {
+    import Produces._
+
+    val known = Map(
+      200 -> "Ok",
+      201 -> "Created",
+      202 -> "Accepted",
+      204 -> "NoContent"
+    )
+
+    val typed = responses.forall { case (_, rs) =>
+      rs.forall { case (mr, r) => mr.isInstanceOf[MediaType] && !r.haveHeaders } &&
+        rs.size <= 1
+    } && responses.exists(_._1.exists(known.contains))
+
+    def getMediaType(rs: ListMap[MediaRange, Response]): Option[(MediaType, Type)] = for {
+      (mr, r) <- rs.headOption
+      mt = mr.asInstanceOf[MediaType]
+      rt <- r.t
+    } yield mt -> Type(mt, rt)
+
+    () match {
+      case _ if responses.contains(None) => Untyped
+      case _ if !typed => Untyped
+      case _ =>
+        val filtered = responses.filter(_._1.exists(known.contains))
+        if (filtered.size > 1)
+          Many(ListMap(filtered.toList.map {
+            case (st, rs) => known(st.get) -> getMediaType(rs)
+          }: _*))
+        else {
+          val (st, rs) = filtered.head
+          One(known(st.get), getMediaType(rs))
+        }
+    }
+  }
 }
 
 case class RequestBody(
   name: Option[String],
   ranges: ListMap[MediaRange, Type],
   required: Boolean
-)
+) {
+  import Consumes._
+  import api4s.codegen.ast.Type.TObj
+
+  lazy val proposedName: Option[String] = consumes match {
+    case Entity(name, _) => Some(name)
+    case _ => None
+  }
+
+  lazy val consumes: Consumes = ranges.toList match {
+    case Nil => Empty
+    case (mr, t) :: Nil if mr == MediaType.application.json => JsonBody(name.get, t)
+    case (mr, TObj(flds)) :: Nil if mr == MediaType.application.`x-www-form-urlencoded` =>
+      FormData(flds.toList)
+    case (mt: MediaType, _) :: Nil => Entity(name.getOrElse(mt.mainType), Some(mt))
+    case _ => Entity(name.getOrElse("entity"), None)
+  }
+}
 
 case class Response(t: Option[Type], haveHeaders: Boolean)
-
-case class Parameter(name: String, t: Type, required: Boolean)

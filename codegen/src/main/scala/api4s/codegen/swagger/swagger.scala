@@ -1,9 +1,8 @@
 package api4s.codegen.swagger
 
 import api4s.codegen.Utils._
-import api4s.codegen.ast.Type.TBinary
+import api4s.codegen.ast.Parameter._
 import api4s.codegen.ast.{ Parameter => Param, Response => Resp, _ }
-import api4s.codegen.emitter.Utils._
 import io.circe.Decoder.Result
 import io.circe.Json
 import org.http4s.MediaRange
@@ -56,7 +55,7 @@ case class Root(
         }
         val endpoints = item.endpoints
         endpoints.values foreach { e =>
-          val pathParams = e.parameters.filter(_._1 == ParameterType.Path).map(_._2).toSet
+          val pathParams = e.parameters.filter(_._1 == Path).map(_._2).toSet
           require(params == pathParams.map(_.name) && pathParams.forall(_.name.nonEmpty),
             s"Incompatible type parameters: ${e.name} $path / $pathParams")
         }
@@ -146,7 +145,7 @@ case class Operation(
   parameters: Option[List[Parameter]],
   responses: SortedMap[String, Response] // may contain default; at least one element
 ) {
-  require(responses.nonEmpty, s"responses object is empty: $this")
+  require(responses.nonEmpty, s"responses object is empty: $this ")
 
   def addMediaTypes(c: Option[List[String]], p: Option[List[String]]): Operation = this.copy(
     consumes = consumes.orElse(c),
@@ -179,9 +178,9 @@ case class Operation(
 
   def endpoint: Endpoint = {
     val params = parameters.getOrElse(Nil).flatMap {
-      case p if p.in.contains("header") => Some(ParameterType.Hdr(p.name.get) -> p.param)
-      case p if p.in.contains("query") => Some(ParameterType.Query(p.name.get) -> p.param)
-      case p if p.in.contains("path") => Some(ParameterType.Path -> p.param)
+      case p if p.in.contains("header") => Some(Hdr(p.name.get) -> p.param)
+      case p if p.in.contains("query") => Some(Query(p.name.get) -> p.param)
+      case p if p.in.contains("path") => Some(Path -> p.param)
       case p => None
     }
 
@@ -201,18 +200,17 @@ case class Operation(
             case Left(e) => throw e
             case Right(r) => r
           }
-          val t = () match {
-            case _ if isFormData(mr) && form.isEmpty => None
-            case _ if isFormData(mr) && form.nonEmpty =>
+
+          (body, form) match {
+            case (None, Nil) => None
+            case (Some(p), Nil) => Some(mr -> p.t)
+            case (None, _ :: _) =>
               val flds = form.map { p =>
                 p.name -> Type.Field(p.t, p.name, p.required)
               }
-              Some(Type.TObj(ListMap(flds: _*)))
-            case _ if form.nonEmpty => Some(TBinary)
-            case _ => body.map(_.t)
+              Some(mr -> Type.TObj(ListMap(flds: _*)))
+            case (Some(_), _ :: _) => throw new Exception("Both body and formData is defined!")
           }
-
-          t.map(mr -> _)
         }: _*
       )
 
@@ -279,9 +277,9 @@ case class Parameter(
     case _ if `type`.contains("array") && !in.contains("body") => Type.TString
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
     case _ if `type`.contains("array") => Type.TArr(Type.TJson)
-    case _ if `type`.contains("file") => Type.TBinary
+    case _ if `type`.contains("file") => Type.TMedia
     case _ if schema.nonEmpty => schema.get.getType
-    case _ => throw new IllegalArgumentException(s"incorrect parameter: $this")
+    case _ => throw new IllegalArgumentException(s"incorrect parameter: $this ")
   }
 
   def param: Param = Param(name.get, getType, required.getOrElse(false))
@@ -314,7 +312,7 @@ case class Schema(
     case _ if `type`.contains("boolean") => Type.TBool
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
     case _ if `type`.contains("array") => Type.TArr(Type.TJson)
-    case _ if `type`.contains("file") => Type.TBinary
+    case _ if `type`.contains("file") => Type.TMedia
     case _ if `type`.contains("object")
       && additionalProperties.isEmpty
       && allOf.isEmpty
@@ -334,12 +332,12 @@ case class Schema(
           val res = a ++ flds
           require(a.size == res.size + flds.size, s"Overlapping fields in allOf: $types")
           res
-        case _ => throw new IllegalArgumentException(s"using allOf on non-object types: $this")
+        case _ => throw new IllegalArgumentException(s"using allOf on non-object types: $this ")
       }
       Type.TObj(fields)
     case _ if `type`.contains("object") && properties.isEmpty && additionalProperties.isEmpty =>
       Type.TMap(Type.TJson)
     case _ if `type`.isEmpty => Type.TJson
-    case _ => throw new IllegalArgumentException(s"incorrect schema: $this")
+    case _ => throw new IllegalArgumentException(s"incorrect schema: $this ")
   }
 }

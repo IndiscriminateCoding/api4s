@@ -2,14 +2,13 @@ package api4s.codegen.emitter
 
 import api4s.codegen.ast._
 import api4s.codegen.emitter.Utils._
-import org.http4s.MediaType
 import org.http4s.util.StringWriter
+import org.http4s.{ MediaRange, MediaType }
 
 import scala.collection.immutable.ListMap
 
 object Http4sServer {
   private def methodMatcher(m: Method, e: Endpoint): List[String] = {
-    import ParameterType._
     import Type._
 
     val primitives = Set[Type](TString, TInt, TLong, TBool)
@@ -20,30 +19,29 @@ object Http4sServer {
 
     val params = e.parameters
       .map {
-        case (Path, Parameter(n, TString, true)) => n -> true
-        case (Path, Parameter(n, t, true)) =>
+        case (Parameter.Path, Parameter(n, TString, true)) => n -> true
+        case (Parameter.Path, Parameter(n, t, true)) =>
           s"Helpers.parser[${primitiveStr(t)}].required($n)" -> true
-        case (Hdr(rn), Parameter(_, t, req)) =>
+        case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
           s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
-        case (Query(rn), Parameter(_, TArr(t), _)) =>
+        case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
           s"""request.queries[${primitiveStr(t)}]("$rn")""" -> true
-        case (Query(rn), Parameter(_, t, req)) =>
+        case (Parameter.Query(rn), Parameter(_, t, req)) =>
           s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
         case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
       }
 
-    val rbt = RequestBodyType(e.requestBody)
-
-    val requestBodyParams = rbt match {
-      case RequestBodyType.JsonBody(n, _) => List(n -> e.requestBody.required)
-      case RequestBodyType.FormData(flds) => flds.map {
+    val requestBodyParams = e.requestBody.consumes match {
+      case Consumes.JsonBody(n, _) => List(n -> e.requestBody.required)
+      case Consumes.FormData(flds) => flds.map {
         case (_, Field(TArr(t), rn, req)) =>
           s"""_formData.values.params[${primitiveStr(t)}]("$rn")""" -> req
         case (_, Field(t, rn, req)) =>
           s"""_formData.values.param${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
       }
-      case RequestBodyType.Raw(_) => List("request.body" -> e.requestBody.required)
-      case RequestBodyType.Empty => Nil
+      case Consumes.Entity(_, Some(_)) => List("request.body" -> e.requestBody.required)
+      case Consumes.Entity(_, None) => List("Media(request)" -> e.requestBody.required)
+      case Consumes.Empty => Nil
     }
     val paramStr = {
       val (req, opt) = (params ++ requestBodyParams).partition(_._2)
@@ -54,9 +52,9 @@ object Http4sServer {
 
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
       case None => s"Helpers.emptyResponse[F](Status.$c)"
-      case Some((mt, t)) if isJson(mt) =>
+      case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
         s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
-      case Some((mt, _)) if isText(mt) =>
+      case Some((mt, _)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
@@ -66,13 +64,18 @@ object Http4sServer {
         s"""Helpers.byteResponse[F](Status.$c, "${sw.result}")"""
     }
 
-    val apiWithExtractor = ResponseType(e.responses) match {
-      case ResponseType.Untyped => List(apiCall)
-      case ResponseType.Specific(c, t @ None) =>
+    val apiWithExtractor = e.produces match {
+      case Produces.Untyped =>
+        List(
+          s"F.map($apiCall.allocated) {",
+          "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
+          "}"
+        )
+      case Produces.One(c, t @ None) =>
         List(s"F.map($apiCall)(_ => ${responseMapperStr(c, t)})")
-      case ResponseType.Specific(c, t @ Some(_)) =>
+      case Produces.One(c, t @ Some(_)) =>
         List(s"F.map($apiCall)(${responseMapperStr(c, t)})")
-      case ResponseType.Multi(rs) =>
+      case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
           case ((c, t @ None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
           case ((c, t @ Some(_)), i) =>
@@ -84,21 +87,21 @@ object Http4sServer {
           List("}")
         ).flatten
     }
-    val apiCallWithBody = rbt match {
-      case RequestBodyType.JsonBody(n, t) if e.requestBody.required =>
+    val apiCallWithBody = e.requestBody.consumes match {
+      case Consumes.JsonBody(n, t) if e.requestBody.required =>
         val decoder = s"Helpers.circeEntityDecoder[F, ${typeStr(t)}]"
         List(
           List(s"request.decodeWith($decoder, true)($n =>"),
           apiWithExtractor.map("  " + _),
           List(")")
         ).flatten
-      case RequestBodyType.JsonBody(n, t) =>
+      case Consumes.JsonBody(n, t) =>
         List(
           List(s"request.decodeJsonOpt[${typeStr(t)}]($n => "),
           apiWithExtractor.map("  " + _),
           List(")")
         ).flatten
-      case RequestBodyType.FormData(_) =>
+      case Consumes.FormData(_) =>
         val decoder = s"http4s.UrlForm.entityDecoder[F]"
         List(
           List(s"request.decodeWith($decoder, true)(_formData => "),
@@ -140,12 +143,12 @@ object Http4sServer {
       List(
         s"package $pkg",
         "",
-        "import api4s.runtime.Endpoint",
+        "import api4s.runtime.{ Endpoint, Media }",
         "import api4s.runtime.Endpoint.RoutingErrorAlgebra",
         "import api4s.runtime.internal.Helpers",
         "import api4s.runtime.internal.Helpers.{ RichRequest, RichUrlForm }",
         "import api4s.runtime.outputs._",
-        "import cats.effect.Sync",
+        "import cats.effect.{ Resource, Sync }",
         "import org.http4s.{ Method, Request, Response, Status }",
         "import org.http4s",
         "import shapeless.{ Inl, Inr }",

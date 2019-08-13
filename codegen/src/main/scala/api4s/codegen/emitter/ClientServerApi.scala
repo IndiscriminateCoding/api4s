@@ -5,45 +5,38 @@ import api4s.codegen.ast._
 import api4s.codegen.emitter.Utils._
 
 object ClientServerApi {
-  private def params(ps: List[(ParameterType, Parameter)]): List[(Boolean, String, Type)] =
-    ps map {
-      case (ParameterType.Query(_), Parameter(n, t @ TArr(_), false)) => (true, n, t)
-      case (_, p) => (p.required, p.name, p.t)
-    }
-
-  private def requestBodyParams(r: RequestBody): List[(Boolean, String, Type)] =
-    RequestBodyType(r) match {
-      case RequestBodyType.Empty => Nil
-      case RequestBodyType.Raw(n) => List((r.required, n, TBinary))
-      case RequestBodyType.JsonBody(n, t) => List((r.required, n, t))
-      case RequestBodyType.FormData(flds) => flds map {
-        case (n, Field(t, _, req)) => (req, n, t)
-      }
-    }
-
-  private def convertParam(p: (Boolean, String, Type)): String = p match {
-    case (true, n, t @ TArr(_)) => s"$n: ${typeStr(t)} = Nil"
-    case (true, n, t) => s"$n: ${typeStr(t)}"
-    case (false, n, t) => s"$n: Option[${typeStr(t)}] = None"
+  private def convertParam(p: Parameter): String = p match {
+    case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
+    case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"
   }
 
-  private def reorderParams(p: List[(Boolean, String, Type)]): List[(Boolean, String, Type)] = {
-    val (req, opt) = p.partition(_._1)
-    req ++ opt
+  private def convertParamDefault(p: Parameter): String = p match {
+    case Parameter(n, t @ TMedia, true) => s"$n: ${typeStr(t)} = Media()"
+    case Parameter(n, t @ TArr(_), true) => s"$n: ${typeStr(t)} = Nil"
+    case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
+    case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"
   }
 
-  private def parameters(e: Endpoint): String = {
-    val ps = reorderParams(params(e.parameters) ++ requestBodyParams(e.requestBody))
-      .map(convertParam)
-    ps match {
+  private def parameters(e: Endpoint): String =
+    e.orderedParameters.map { case (_, p) => convertParam(p) } match {
       case Nil => ""
-      case _ => s"(${ps.mkString(", ")})"
+      case ps => s"(${ps.mkString(", ")})"
     }
+
+  private def parametersDefault(e: Endpoint): String =
+    e.orderedParameters.map { case (_, p) => convertParamDefault(p) } match {
+      case Nil => ""
+      case ps => s"(${ps.mkString(", ")})"
+    }
+
+  def withDefaults(e: Endpoint): String = {
+    val endpointStr = s"def ${e.name.get}${parametersDefault(e)}"
+    s"$endpointStr: ${producesLifted(e.produces)}"
   }
 
   def apply(e: Endpoint): String = {
     val endpointStr = s"def ${e.name.get}${parameters(e)}"
-    s"$endpointStr: ${ResponseType(e.responses).lifted}"
+    s"$endpointStr: ${producesLifted(e.produces)}"
   }
 
   def apply(pkg: String, endpoints: Map[List[Segment], Map[Method, Endpoint]]): String = {
@@ -51,6 +44,7 @@ object ClientServerApi {
     List(
       s"package $pkg",
       "",
+      "import api4s.runtime.Media",
       "import api4s.runtime.outputs._",
       "import cats.effect.Resource",
       "import fs2.Stream",
@@ -61,7 +55,7 @@ object ClientServerApi {
       s"import $pkg.Model._",
       "",
       "trait Api[F[_]] {",
-      eps.map(e => "  " + apply(e)).mkString("\n"),
+      eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "}"
     ).mkString("\n")
   }

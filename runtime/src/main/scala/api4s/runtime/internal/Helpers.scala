@@ -144,6 +144,13 @@ object Helpers {
     body = bytes
   )
 
+  /* // Not yet
+  def entityResponse[F[_]](status: Status)(entity: Entity[F]): Response[F] = Response(
+    status = status,
+    headers = entity.headers,
+    body = entity.body
+  ) */
+
   def emptyResponse[F[_]](status: Status): Response[F] =
     Response(status = status)
 }
