@@ -17,35 +17,27 @@ object Http4sServer {
       if (primitives(t)) typeStr(t)
       else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = ${e.name.get})")
 
-    val params = e.parameters
-      .map {
-        case (Parameter.Path, Parameter(n, TString, true)) => n -> true
+    val paramStr = {
+      val ps = e.orderedParameters.map {
+        case (Parameter.Path, Parameter(n, TString, true)) => n
         case (Parameter.Path, Parameter(n, t, true)) =>
-          s"Helpers.parser[${primitiveStr(t)}].required($n)" -> true
+          s"Helpers.parser[${primitiveStr(t)}].required($n)"
         case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
-          s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
+          s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
         case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
-          s"""request.queries[${primitiveStr(t)}]("$rn")""" -> true
+          s"""request.queries[${primitiveStr(t)}]("$rn")"""
         case (Parameter.Query(rn), Parameter(_, t, req)) =>
-          s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
+          s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
+        case (Parameter.Body(_), Parameter(_, TMedia, _)) => "Media(request)"
+        case (Parameter.Body(_), Parameter(n, _, _)) => n
+        case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
+          s"""_formData.values.params[${primitiveStr(t)}]("$rn")"""
+        case (Parameter.InlinedBody(rn), Parameter(_, t, req)) =>
+          s"""_formData.values.param${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
         case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
       }
 
-    val requestBodyParams = e.requestBody.consumes match {
-      case Consumes.JsonBody(n, _) => List(n -> e.requestBody.required)
-      case Consumes.FormData(flds) => flds.map {
-        case (_, Field(TArr(t), rn, req)) =>
-          s"""_formData.values.params[${primitiveStr(t)}]("$rn")""" -> req
-        case (_, Field(t, rn, req)) =>
-          s"""_formData.values.param${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")""" -> req
-      }
-      case Consumes.Entity(_, Some(_)) => List("request.body" -> e.requestBody.required)
-      case Consumes.Entity(_, None) => List("Media(request)" -> e.requestBody.required)
-      case Consumes.Empty => Nil
-    }
-    val paramStr = {
-      val (req, opt) = (params ++ requestBodyParams).partition(_._2)
-      (req ++ opt).map(_._1).mkString(", ")
+      ps.mkString(", ")
     }
 
     val apiCall = s"api.${e.name.get}${if (paramStr.isEmpty) "" else s"($paramStr)"}"
@@ -58,10 +50,8 @@ object Http4sServer {
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
-      case Some((mt, _)) =>
-        val sw = new StringWriter()
-        MediaType.http4sHttpCodecForMediaType.render(sw, mt)
-        s"""Helpers.byteResponse[F](Status.$c, "${sw.result}")"""
+      case Some(_) =>
+        s"Helpers.mediaResponse[F](Status.$c)"
     }
 
     val apiWithExtractor = e.produces match {
@@ -108,7 +98,8 @@ object Http4sServer {
           apiWithExtractor.map("  " + _),
           List(")")
         ).flatten
-      case _ => apiWithExtractor
+      case Consumes.Entity(_, _) => apiWithExtractor
+      case Consumes.Empty => apiWithExtractor
     }
 
     s"case Method.${m.toString.toUpperCase} =>" :: apiCallWithBody.map("  " + _)

@@ -45,7 +45,7 @@ object Http4sClient {
 
     val encoder = e.requestBody.consumes match {
       case Consumes.Empty => Nil
-      case Consumes.Entity(n, _) => List(s"_headers ++= $n.headers")
+      case Consumes.Entity(n, _) => List(s"_headers ++= $n.headers.iterator")
       case Consumes.JsonBody(n, t) =>
         val hdrs =
           if (e.requestBody.required) "_headers ++= _encoder.headers.toList"
@@ -75,7 +75,7 @@ object Http4sClient {
       case Consumes.Empty => Nil
       case Consumes.Entity(n, _) => List(s"body = $n.body, ")
       case Consumes.JsonBody(n, _) if !e.requestBody.required =>
-        List(s"body = $n.fold[Stream[F, Byte]](Stream.empty)(_encoder.toEntity(_).body),")
+        List(s"body = $n.fold[fs2.Stream[F, Byte]](fs2.Stream.empty)(_encoder.toEntity(_).body),")
       case Consumes.JsonBody(n, _) => List(s"body = _encoder.toEntity($n).body,")
       case Consumes.FormData(_) =>
         List(s"body = _encoder.toEntity(http4s.UrlForm(_formData: _*)).body,")
@@ -92,12 +92,12 @@ object Http4sClient {
 
       def one(s: String, t: Option[(MediaType, Type)]): String = t match {
         case Some((mt, _)) => decoder(mt) match {
-          case None if rs.length == 1 => s"case Status.$s => F.pure(r.body)"
+          case None if rs.length == 1 => s"case Status.$s => F.pure(Media(r))"
           case Some(d) if rs.length == 1 =>
             s"case Status.$s => r.as[${typeStr(t.map(_._2))}](F, $d)"
           case None =>
             val p = producesPlain(e.produces)
-            s"case Status.$s => F.map(r.body)(x => Coproduct[$p]($s(x)))"
+            s"case Status.$s => F.pure(Coproduct[$p]($s(Media(r))))"
           case Some(d) => List(
             s"case Status.$s => F.map(r.as[${typeStr(t.map(_._2))}](F, $d))",
             s"(x => Coproduct[${producesPlain(e.produces)}]($s(x)))"
@@ -150,7 +150,6 @@ object Http4sClient {
       "import api4s.runtime.Media",
       "import api4s.runtime.internal.Helpers",
       "import api4s.runtime.outputs._",
-      "import fs2.Stream",
       "import cats.effect.{ Resource, Sync }",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Method, Request, Response, Status }",

@@ -17,8 +17,8 @@ object FixIdents {
     "mutable", "request", "formData", "api", "client", "http4s"
   )
   private val importedSymbols = Set(
-    "Map", "String", "Int", "Long", "Double", "Boolean", "Stream", "Byte", "Some", "Option",
-    "List", "Throwable",
+    "Map", "String", "Int", "Long", "Double", "Boolean", "Byte", "Some", "Option", "List",
+    "Throwable",
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil", "Resource",
     "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
@@ -77,7 +77,7 @@ object FixIdents {
 
           val re = raw"(\d{0,8})(.*)".r
           str.reverse match {
-            case _ if !replacements.exists(_._2 == str) => str
+            case _ if allowed(str) && !replacements.exists(_._2 == str) => str
             case re("", _) => findFree(str, 0)
             case re(idx, s) => findFree(s.reverse, idx.reverse.toLong)
             case _ => throw new Exception("never happens")

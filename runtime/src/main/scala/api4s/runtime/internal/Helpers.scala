@@ -1,5 +1,6 @@
 package api4s.runtime.internal
 
+import api4s.runtime.Media
 import cats.Applicative
 import cats.data.Chain
 import cats.effect.Sync
@@ -135,21 +136,11 @@ object Helpers {
     )
   }
 
-  def byteResponse[F[_]](
-    status: Status,
-    mediaType: String
-  )(bytes: fs2.Stream[F, Byte]): Response[F] = Response(
+  def mediaResponse[F[_]](status: Status)(media: Media[F]): Response[F] = Response(
     status = status,
-    headers = Headers.of(Header("Content-Type", mediaType)),
-    body = bytes
+    headers = media.headers,
+    body = media.body
   )
-
-  /* // Not yet
-  def entityResponse[F[_]](status: Status)(entity: Entity[F]): Response[F] = Response(
-    status = status,
-    headers = entity.headers,
-    body = entity.body
-  ) */
 
   def emptyResponse[F[_]](status: Status): Response[F] =
     Response(status = status)

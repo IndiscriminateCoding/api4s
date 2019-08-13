@@ -47,7 +47,6 @@ object ClientServerApi {
       "import api4s.runtime.Media",
       "import api4s.runtime.outputs._",
       "import cats.effect.Resource",
-      "import fs2.Stream",
       "import io.circe.Json",
       "import org.http4s.Response",
       "import shapeless.{ :+:, CNil }",

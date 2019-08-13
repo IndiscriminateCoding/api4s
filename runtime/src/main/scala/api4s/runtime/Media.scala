@@ -18,9 +18,9 @@ case class Media[F[_]](
 }
 
 object Media {
-  def apply[F[_]](req: Request[F]): Media[F] = Media(
-    body = req.body,
-    mediaType = headers.`Content-Type`.from(req.headers).map(_.mediaType),
-    length = headers.`Content-Length`.from(req.headers).map(_.length)
+  def apply[F[_]](msg: Message[F]): Media[F] = Media(
+    body = msg.body,
+    mediaType = headers.`Content-Type`.from(msg.headers).map(_.mediaType),
+    length = headers.`Content-Length`.from(msg.headers).map(_.length)
   )
 }
