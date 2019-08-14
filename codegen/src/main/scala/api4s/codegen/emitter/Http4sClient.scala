@@ -151,6 +151,7 @@ object Http4sClient {
       "import api4s.runtime.internal.Helpers",
       "import api4s.runtime.outputs._",
       "import cats.effect.{ Resource, Sync }",
+      "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Method, Request, Response, Status }",
       "import org.http4s",
