@@ -33,8 +33,14 @@ object FixIdents {
     //"InternalServerError", "BadGateway", "ServiceUnavailable", "GatewayTimeout"
   )
 
-  private class Renamer(prefix: String, lowercase: Boolean) {
-    private[this] var replacements = Map.empty[String, String]
+  private class Renamer(
+    prefix: String,
+    lowercase: Boolean,
+    ctx: Map[String, String] = Map.empty
+  ) {
+    private[this] var replacements = ctx
+
+    def currentCtx: Map[String, String] = replacements
 
     def allowed(s: String): Boolean = s.nonEmpty &&
       !keywords(s) &&
@@ -129,7 +135,7 @@ object FixIdents {
         case s => s
       }
       val nmethods = methods mapValueList { ep =>
-        val paramNames = new Renamer("param", true)
+        val paramNames = new Renamer("param", true, snames.currentCtx)
         Endpoint(
           name = Some(opNames.fix(ep.name.getOrElse(""))),
           parameters = ep.parameters.map {
