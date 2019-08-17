@@ -1,6 +1,6 @@
-package api4s.runtime.internal
+package api4s.internal
 
-import api4s.runtime.Media
+import api4s.Media
 import cats.Applicative
 import cats.data.Chain
 import cats.effect.Sync

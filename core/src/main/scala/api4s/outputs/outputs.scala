@@ -1,4 +1,4 @@
-package api4s.runtime.outputs
+package api4s.outputs
 
 case class Ok[A](content: A)
 object Ok {

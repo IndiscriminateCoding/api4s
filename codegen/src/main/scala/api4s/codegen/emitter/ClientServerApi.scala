@@ -44,8 +44,8 @@ object ClientServerApi {
     List(
       s"package $pkg",
       "",
-      "import api4s.runtime.Media",
-      "import api4s.runtime.outputs._",
+      "import api4s.Media",
+      "import api4s.outputs._",
       "import cats.effect.Resource",
       "import io.circe.Json",
       "import org.http4s.Response",

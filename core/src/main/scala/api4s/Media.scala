@@ -1,4 +1,4 @@
-package api4s.runtime
+package api4s
 
 import org.http4s._
 

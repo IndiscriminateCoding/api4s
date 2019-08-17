@@ -4,11 +4,11 @@
 /project/project/
 /project/target/
 /codegen/target/
-/runtime/target/
+/core/target/
 /sbt-plugin/target
 /example/project/project
 /example/project/target
 /example/target
 
 /codegen/src/main/scala/api4s/codegen/Main.scala
-/runtime/src/test
+/core/src/test

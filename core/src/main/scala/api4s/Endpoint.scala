@@ -1,6 +1,6 @@
-package api4s.runtime
+package api4s
 
-import api4s.runtime.Endpoint._
+import api4s.Endpoint._
 import cats.Applicative
 import cats.data.Kleisli
 import org.http4s._

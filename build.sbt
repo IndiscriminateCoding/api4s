@@ -27,10 +27,10 @@ lazy val codegen = (project in file("codegen"))
     )
   )
 
-lazy val runtime = (project in file("runtime"))
+lazy val runtime = (project in file("core"))
   .settings(
     crossScalaVersions := scalaVersions,
-    name := "api4s-runtime",
+    name := "api4s-core",
     scalacOptions ++= Seq(
       "-language:higherKinds",
       "-Ypartial-unification"
