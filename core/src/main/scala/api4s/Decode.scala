@@ -1,4 +1,4 @@
-package api4s.codecs
+package api4s
 
 import cats.data.Validated._
 import cats.data._
@@ -7,74 +7,80 @@ import org.http4s.{ Headers, Query, UrlForm }
 
 import scala.util.control.NonFatal
 
-trait Decoder[-I, +A] {
-  def decode(in: I, name: String): ValidatedNec[DecodingError.One, A]
+trait Decode[-I, +A] {
+  def apply(in: I, name: String): ValidatedNec[DecodingError.One, A]
 
-  final def contramap[B](f: B => I): Decoder[B, A] = (in, name) => decode(f(in), name)
+  final def contramap[B](f: B => I): Decode[B, A] = (in, name) => apply(f(in), name)
 
-  final def map[B](f: A => B): Decoder[I, B] = (in, name) => decode(in, name).map(f)
+  final def map[B](f: A => B): Decode[I, B] = (in, name) => apply(in, name).map(f)
 }
 
-object Decoder {
-  def apply[I, A](implicit d: Decoder[I, A]): Decoder[I, A] = d
+object Decode {
+  def apply[A]: DecodePartiallyApplied[A] = new DecodePartiallyApplied[A]
 
-  implicit def optionDecoder[I, A](implicit d: Decoder[I, List[A]]): Decoder[I, Option[A]] =
+  class DecodePartiallyApplied[A](private val _unused: Unit = ()) extends AnyVal {
+    def apply[In](in: In, name: String)(implicit
+      decode: Decode[In, A]
+    ): ValidatedNec[DecodingError.One, A] = decode(in, name)
+  }
+
+  implicit def optionDecoder[I, A](implicit d: Decode[I, List[A]]): Decode[I, Option[A]] =
     d.map(_.headOption)
 
-  implicit val pathDecoderForString: Decoder[String, String] = StringDecoders.path
-  implicit val urlFormDecoderForStringList: Decoder[UrlForm, List[String]] =
+  implicit val pathDecoderForString: Decode[String, String] = StringDecoders.path
+  implicit val urlFormDecoderForStringList: Decode[UrlForm, List[String]] =
     StringDecoders.urlForm.many
-  implicit val urlFormDecoderForString: Decoder[UrlForm, String] =
+  implicit val urlFormDecoderForString: Decode[UrlForm, String] =
     StringDecoders.urlForm.one
-  implicit val queryDecoderForStringList: Decoder[Query, List[String]] =
+  implicit val queryDecoderForStringList: Decode[Query, List[String]] =
     StringDecoders.query.many
-  implicit val queryDecoderForString: Decoder[Query, String] =
+  implicit val queryDecoderForString: Decode[Query, String] =
     StringDecoders.query.one
-  implicit val headerDecoderForStringList: Decoder[Headers, List[String]] =
+  implicit val headerDecoderForStringList: Decode[Headers, List[String]] =
     StringDecoders.headers.many
-  implicit val headerDecoderForString: Decoder[Headers, String] =
+  implicit val headerDecoderForString: Decode[Headers, String] =
     StringDecoders.headers.one
 
-  implicit val pathDecoderForInt: Decoder[String, Int] = IntDecoders.path
-  implicit val urlFormDecoderForIntList: Decoder[UrlForm, List[Int]] =
+  implicit val pathDecoderForInt: Decode[String, Int] = IntDecoders.path
+  implicit val urlFormDecoderForIntList: Decode[UrlForm, List[Int]] =
     IntDecoders.urlForm.many
-  implicit val urlFormDecoderForInt: Decoder[UrlForm, Int] =
+  implicit val urlFormDecoderForInt: Decode[UrlForm, Int] =
     IntDecoders.urlForm.one
-  implicit val queryDecoderForIntList: Decoder[Query, List[Int]] =
+  implicit val queryDecoderForIntList: Decode[Query, List[Int]] =
     IntDecoders.query.many
-  implicit val queryDecoderForInt: Decoder[Query, Int] =
+  implicit val queryDecoderForInt: Decode[Query, Int] =
     IntDecoders.query.one
-  implicit val headerDecoderForIntList: Decoder[Headers, List[Int]] =
+  implicit val headerDecoderForIntList: Decode[Headers, List[Int]] =
     IntDecoders.headers.many
-  implicit val headerDecoderForInt: Decoder[Headers, Int] =
+  implicit val headerDecoderForInt: Decode[Headers, Int] =
     IntDecoders.headers.one
 
-  implicit val pathDecoderForLong: Decoder[String, Long] = LongDecoders.path
-  implicit val urlFormDecoderForLongList: Decoder[UrlForm, List[Long]] =
+  implicit val pathDecoderForLong: Decode[String, Long] = LongDecoders.path
+  implicit val urlFormDecoderForLongList: Decode[UrlForm, List[Long]] =
     LongDecoders.urlForm.many
-  implicit val urlFormDecoderForLong: Decoder[UrlForm, Long] =
+  implicit val urlFormDecoderForLong: Decode[UrlForm, Long] =
     LongDecoders.urlForm.one
-  implicit val queryDecoderForLongList: Decoder[Query, List[Long]] =
+  implicit val queryDecoderForLongList: Decode[Query, List[Long]] =
     LongDecoders.query.many
-  implicit val queryDecoderForLong: Decoder[Query, Long] =
+  implicit val queryDecoderForLong: Decode[Query, Long] =
     LongDecoders.query.one
-  implicit val headerDecoderForLongList: Decoder[Headers, List[Long]] =
+  implicit val headerDecoderForLongList: Decode[Headers, List[Long]] =
     LongDecoders.headers.many
-  implicit val headerDecoderForLong: Decoder[Headers, Long] =
+  implicit val headerDecoderForLong: Decode[Headers, Long] =
     LongDecoders.headers.one
 
-  implicit val pathDecoderForBoolean: Decoder[String, Boolean] = BooleanDecoders.path
-  implicit val urlFormDecoderForBooleanList: Decoder[UrlForm, List[Boolean]] =
+  implicit val pathDecoderForBoolean: Decode[String, Boolean] = BooleanDecoders.path
+  implicit val urlFormDecoderForBooleanList: Decode[UrlForm, List[Boolean]] =
     BooleanDecoders.urlForm.many
-  implicit val urlFormDecoderForBoolean: Decoder[UrlForm, Boolean] =
+  implicit val urlFormDecoderForBoolean: Decode[UrlForm, Boolean] =
     BooleanDecoders.urlForm.one
-  implicit val queryDecoderForBooleanList: Decoder[Query, List[Boolean]] =
+  implicit val queryDecoderForBooleanList: Decode[Query, List[Boolean]] =
     BooleanDecoders.query.many
-  implicit val queryDecoderForBoolean: Decoder[Query, Boolean] =
+  implicit val queryDecoderForBoolean: Decode[Query, Boolean] =
     BooleanDecoders.query.one
-  implicit val headerDecoderForBooleanList: Decoder[Headers, List[Boolean]] =
+  implicit val headerDecoderForBooleanList: Decode[Headers, List[Boolean]] =
     BooleanDecoders.headers.many
-  implicit val headerDecoderForBoolean: Decoder[Headers, Boolean] =
+  implicit val headerDecoderForBoolean: Decode[Headers, Boolean] =
     BooleanDecoders.headers.one
 
   private object StringDecoders extends RequestDecoders[String] {
@@ -105,7 +111,7 @@ object Decoder {
     def cast(s: String): A
     def typeName: String
 
-    def path: Decoder[String, A] = (in, name) =>
+    def path: Decode[String, A] = (in, name) =>
       try Valid(cast(in))
       catch {
         case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
@@ -158,7 +164,7 @@ object Decoder {
     def typeName: String
     def location: String
 
-    def many: Decoder[I, List[A]] = (in, name) => {
+    def many: Decode[I, List[A]] = (in, name) => {
       import cats.instances.list._
       import cats.syntax.traverse._
 
@@ -173,7 +179,7 @@ object Decoder {
       )
     }
 
-    def one: Decoder[I, A] = (in, name) => many.decode(in, name).fold(Invalid(_), {
+    def one: Decode[I, A] = (in, name) => many.apply(in, name).fold(Invalid(_), {
       case x :: _ => Valid(x)
       case Nil => Invalid(NonEmptyChain(
         DecodingError(s"$location parameter (name=$name) not found", "")

@@ -1,4 +1,4 @@
-package api4s.codecs
+package api4s
 
 import cats.Applicative
 import cats.data.NonEmptyChain
@@ -19,10 +19,7 @@ object DecodingError {
     else new Many(errors)
   }
 
-  class One(
-    val sanitized: String,
-    val details: String
-  ) extends DecodingError {
+  class One(val sanitized: String, val details: String) extends DecodingError {
     def message: String =
       if (sanitized.isEmpty) details
       else if (details.isEmpty) sanitized
@@ -38,9 +35,7 @@ object DecodingError {
     ).withEntity[Json](Json.obj("error" -> Json.fromString(sanitized))))
   }
 
-  class Many(
-    val errors: NonEmptyChain[One]
-  ) extends DecodingError {
+  class Many(val errors: NonEmptyChain[One]) extends DecodingError {
     def message: String = s"${errors.length} decoding errors"
 
     def cause: Option[Throwable] = None
