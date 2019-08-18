@@ -24,94 +24,84 @@ object Decode {
     ): ValidatedNec[DecodingError.One, A] = decode(in, name)
   }
 
-  implicit def optionDecoder[I, A](implicit d: Decode[I, List[A]]): Decode[I, Option[A]] =
-    d.map(_.headOption)
-
-  implicit val pathDecoderForString: Decode[String, String] = StringDecoders.path
-  implicit val urlFormDecoderForStringList: Decode[UrlForm, List[String]] =
-    StringDecoders.urlForm.many
-  implicit val urlFormDecoderForString: Decode[UrlForm, String] =
-    StringDecoders.urlForm.one
-  implicit val queryDecoderForStringList: Decode[Query, List[String]] =
-    StringDecoders.query.many
-  implicit val queryDecoderForString: Decode[Query, String] =
-    StringDecoders.query.one
-  implicit val headerDecoderForStringList: Decode[Headers, List[String]] =
-    StringDecoders.headers.many
-  implicit val headerDecoderForString: Decode[Headers, String] =
-    StringDecoders.headers.one
-
-  implicit val pathDecoderForInt: Decode[String, Int] = IntDecoders.path
-  implicit val urlFormDecoderForIntList: Decode[UrlForm, List[Int]] =
-    IntDecoders.urlForm.many
-  implicit val urlFormDecoderForInt: Decode[UrlForm, Int] =
-    IntDecoders.urlForm.one
-  implicit val queryDecoderForIntList: Decode[Query, List[Int]] =
-    IntDecoders.query.many
-  implicit val queryDecoderForInt: Decode[Query, Int] =
-    IntDecoders.query.one
-  implicit val headerDecoderForIntList: Decode[Headers, List[Int]] =
-    IntDecoders.headers.many
-  implicit val headerDecoderForInt: Decode[Headers, Int] =
-    IntDecoders.headers.one
-
-  implicit val pathDecoderForLong: Decode[String, Long] = LongDecoders.path
-  implicit val urlFormDecoderForLongList: Decode[UrlForm, List[Long]] =
-    LongDecoders.urlForm.many
-  implicit val urlFormDecoderForLong: Decode[UrlForm, Long] =
-    LongDecoders.urlForm.one
-  implicit val queryDecoderForLongList: Decode[Query, List[Long]] =
-    LongDecoders.query.many
-  implicit val queryDecoderForLong: Decode[Query, Long] =
-    LongDecoders.query.one
-  implicit val headerDecoderForLongList: Decode[Headers, List[Long]] =
-    LongDecoders.headers.many
-  implicit val headerDecoderForLong: Decode[Headers, Long] =
-    LongDecoders.headers.one
-
-  implicit val pathDecoderForBoolean: Decode[String, Boolean] = BooleanDecoders.path
-  implicit val urlFormDecoderForBooleanList: Decode[UrlForm, List[Boolean]] =
-    BooleanDecoders.urlForm.many
-  implicit val urlFormDecoderForBoolean: Decode[UrlForm, Boolean] =
-    BooleanDecoders.urlForm.one
-  implicit val queryDecoderForBooleanList: Decode[Query, List[Boolean]] =
-    BooleanDecoders.query.many
-  implicit val queryDecoderForBoolean: Decode[Query, Boolean] =
-    BooleanDecoders.query.one
-  implicit val headerDecoderForBooleanList: Decode[Headers, List[Boolean]] =
-    BooleanDecoders.headers.many
-  implicit val headerDecoderForBoolean: Decode[Headers, Boolean] =
-    BooleanDecoders.headers.one
-
-  private object StringDecoders extends RequestDecoders[String] {
-    def cast(s: String): String = s
-
-    def typeName: String = "String"
+  final class Location[T](val get: String) extends AnyVal {
+    override def toString: String = get
+  }
+  object Location {
+    implicit val urlFormLocation: Location[UrlForm] = new Location("form")
+    implicit val queryLocation: Location[Query] = new Location("query")
+    implicit val headerLocation: Location[Headers] = new Location("header")
   }
 
-  private object IntDecoders extends RequestDecoders[Int] {
-    def cast(s: String): Int = s.toInt
+  implicit def decodeAtLeastOne[I, A](implicit
+    D: Decode[I, List[A]],
+    L: Location[I]
+  ): Decode[I, A] = (in, name) => D(in, name).fold(Invalid(_), {
+    case x :: _ => Valid(x)
+    case Nil => Invalid(NonEmptyChain(
+      DecodingError(s"$L parameter (name=$name) not found", "")
+    ))
+  })
 
-    def typeName: String = "Int"
-  }
+  implicit def decodeOption[I, A](implicit D: Decode[I, List[A]]): Decode[I, Option[A]] =
+    D.map(_.headOption)
 
-  private object LongDecoders extends RequestDecoders[Long] {
-    def cast(s: String): Long = s.toLong
+  implicit val decodeStringFromPath: Decode[String, String] =
+    decodePathFromCast(identity, "String")
+  implicit val decodeListStringFromUrlForm: Decode[UrlForm, List[String]] =
+    decodeListFromUrlForm(identity, "String")
+  implicit val decodeListStringFromQuery: Decode[Query, List[String]] =
+    decodeListFromQuery(identity, "String")
+  implicit val decodeListStringFromHeaders: Decode[Headers, List[String]] =
+    decodeListFromHeaders(identity, "String")
 
-    def typeName: String = "Long"
-  }
+  implicit val decodeIntFromPath: Decode[String, Int] =
+    decodePathFromCast(_.toInt, "Int")
+  implicit val decodeListIntFromUrlForm: Decode[UrlForm, List[Int]] =
+    decodeListFromUrlForm(_.toInt, "Int")
+  implicit val decodeListIntFromQuery: Decode[Query, List[Int]] =
+    decodeListFromQuery(_.toInt, "Int")
+  implicit val decodeListIntFromHeaders: Decode[Headers, List[Int]] =
+    decodeListFromHeaders(_.toInt, "Int")
 
-  private object BooleanDecoders extends RequestDecoders[Boolean] {
-    def cast(s: String): Boolean = s.toBoolean
+  implicit val decodeLongFromPath: Decode[String, Long] =
+    decodePathFromCast(_.toLong, "Long")
+  implicit val decodeListLongFromUrlForm: Decode[UrlForm, List[Long]] =
+    decodeListFromUrlForm(_.toLong, "Long")
+  implicit val decodeListLongFromQuery: Decode[Query, List[Long]] =
+    decodeListFromQuery(_.toLong, "Long")
+  implicit val decodeListLongFromHeaders: Decode[Headers, List[Long]] =
+    decodeListFromHeaders(_.toLong, "Long")
 
-    def typeName: String = "Boolean"
-  }
+  implicit val decodeFloatFromPath: Decode[String, Float] =
+    decodePathFromCast(_.toFloat, "Float")
+  implicit val decodeListFloatFromUrlForm: Decode[UrlForm, List[Float]] =
+    decodeListFromUrlForm(_.toFloat, "Float")
+  implicit val decodeListFloatFromQuery: Decode[Query, List[Float]] =
+    decodeListFromQuery(_.toFloat, "Float")
+  implicit val decodeListFloatFromHeaders: Decode[Headers, List[Float]] =
+    decodeListFromHeaders(_.toFloat, "Float")
 
-  private trait RequestDecoders[A] { self =>
-    def cast(s: String): A
-    def typeName: String
+  implicit val decodeDoubleFromPath: Decode[String, Double] =
+    decodePathFromCast(_.toDouble, "Double")
+  implicit val decodeListDoubleFromUrlForm: Decode[UrlForm, List[Double]] =
+    decodeListFromUrlForm(_.toDouble, "Double")
+  implicit val decodeListDoubleFromQuery: Decode[Query, List[Double]] =
+    decodeListFromQuery(_.toDouble, "Double")
+  implicit val decodeListDoubleFromHeaders: Decode[Headers, List[Double]] =
+    decodeListFromHeaders(_.toDouble, "Double")
 
-    def path: Decode[String, A] = (in, name) =>
+  implicit val decodeBooleanFromPath: Decode[String, Boolean] =
+    decodePathFromCast(_.toBoolean, "Boolean")
+  implicit val decodeListBooleanFromUrlForm: Decode[UrlForm, List[Boolean]] =
+    decodeListFromUrlForm(_.toBoolean, "Boolean")
+  implicit val decodeListBooleanFromQuery: Decode[Query, List[Boolean]] =
+    decodeListFromQuery(_.toBoolean, "Boolean")
+  implicit val decodeListBooleanFromHeaders: Decode[Headers, List[Boolean]] =
+    decodeListFromHeaders(_.toBoolean, "Boolean")
+
+  def decodePathFromCast[A](cast: String => A, typeName: String): Decode[String, A] =
+    (in, name) =>
       try Valid(cast(in))
       catch {
         case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
@@ -120,70 +110,37 @@ object Decode {
         )))
       }
 
-    def urlForm: Decoders[UrlForm, A] = new Decoders[UrlForm, A] {
-      def extract(in: UrlForm, name: String): List[String] = in.get(name).toList
+  def decodeListFromCastAndGet[I, A](
+    cast: String => A,
+    typeName: String,
+    get: (I, String) => List[String]
+  )(implicit L: Location[I]): Decode[I, List[A]] = (in, name) => {
+    import cats.instances.list._
+    import cats.syntax.traverse._
 
-      def cast(s: String): A = self.cast(s)
-
-      def typeName: String = self.typeName
-
-      def location: String = "form"
-    }
-
-    def query: Decoders[Query, A] = new Decoders[Query, A] {
-      def extract(in: Query, name: String): List[String] = in.pairs.foldLeft[List[String]](Nil) {
-        case (acc, (n, Some(v))) if n == name => v :: acc
-        case (acc, _) => acc
+    get(in, name).traverse(s =>
+      try Valid(cast(s))
+      catch {
+        case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
+          sanitized = s"can't convert $L parameter (name=$name) to $typeName",
+          details = s"value=${Json.fromString(s)}"
+        )))
       }
-
-      def cast(s: String): A = self.cast(s)
-
-      def typeName: String = self.typeName
-
-      def location: String = "query"
-    }
-
-    def headers: Decoders[Headers, A] = new Decoders[Headers, A] {
-      def extract(in: Headers, name: String): List[String] =
-        in.toList.foldLeft[List[String]](Nil) {
-          case (acc, h) if h.name.value.equalsIgnoreCase(name) => h.value :: acc
-          case (acc, _) => acc
-        }
-
-      def cast(s: String): A = self.cast(s)
-
-      def typeName: String = self.typeName
-
-      def location: String = "header"
-    }
+    )
   }
 
-  private trait Decoders[I, A] {
-    def extract(in: I, name: String): List[String]
-    def cast(s: String): A
-    def typeName: String
-    def location: String
+  def decodeListFromUrlForm[A](cast: String => A, typeName: String): Decode[UrlForm, List[A]] =
+    decodeListFromCastAndGet(cast, typeName, (f, n) => f.get(n).toList)
 
-    def many: Decode[I, List[A]] = (in, name) => {
-      import cats.instances.list._
-      import cats.syntax.traverse._
-
-      extract(in, name).traverse(s =>
-        try Valid(cast(s))
-        catch {
-          case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
-            sanitized = s"can't convert $location parameter (name=$name) to $typeName",
-            details = s"value=${Json.fromString(s)}"
-          )))
-        }
-      )
-    }
-
-    def one: Decode[I, A] = (in, name) => many.apply(in, name).fold(Invalid(_), {
-      case x :: _ => Valid(x)
-      case Nil => Invalid(NonEmptyChain(
-        DecodingError(s"$location parameter (name=$name) not found", "")
-      ))
+  def decodeListFromQuery[A](cast: String => A, typeName: String): Decode[Query, List[A]] =
+    decodeListFromCastAndGet(cast, typeName, (f, n) => f.pairs.foldLeft[List[String]](Nil) {
+      case (acc, (name, Some(v))) if name == n => v :: acc
+      case (acc, _) => acc
     })
-  }
+
+  def decodeListFromHeaders[A](cast: String => A, typeName: String): Decode[Headers, List[A]] =
+    decodeListFromCastAndGet(cast, typeName, (f, n) => f.toList.foldLeft[List[String]](Nil) {
+      case (acc, h) if h.name.value.equalsIgnoreCase(n) => h.value :: acc
+      case (acc, _) => acc
+    })
 }

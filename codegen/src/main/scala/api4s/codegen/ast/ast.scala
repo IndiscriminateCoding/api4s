@@ -20,7 +20,8 @@ object Type {
   case object TJson extends Type
   case object TInt extends Type
   case object TLong extends Type
-  case object TNum extends Type
+  case object TFloat extends Type
+  case object TDouble extends Type
   case object TString extends Type
   case object TBool extends Type
   case object TMedia extends Type

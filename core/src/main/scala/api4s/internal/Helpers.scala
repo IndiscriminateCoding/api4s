@@ -44,6 +44,12 @@ object Helpers {
   implicit val booleanParser: Parser[Boolean] = new Parser[Boolean] {
     def apply(s: String): Boolean = s.toBoolean
   }
+  implicit val floatParser: Parser[Float] = new Parser[Float] {
+    def apply(s: String): Float = s.toFloat
+  }
+  implicit val doubleParser: Parser[Double] = new Parser[Double] {
+    def apply(s: String): Double = s.toDouble
+  }
 
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
     def pathSegments: List[String] = r.uri.path.split('/').filter(_.nonEmpty).toList

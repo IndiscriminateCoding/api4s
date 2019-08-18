@@ -267,7 +267,8 @@ case class Parameter(
   def getType: Type = () match {
     case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt
     case _ if `type`.contains("integer") => Type.TLong
-    case _ if `type`.contains("number") => Type.TNum
+    case _ if `type`.contains("number") && format.contains("float32") => Type.TFloat
+    case _ if `type`.contains("number") => Type.TDouble
     case _ if `type`.contains("string") => Type.TString
     case _ if `type`.contains("boolean") => Type.TBool
     case _ if `type`.contains("array") && collectionFormat.contains("multi") && items.nonEmpty =>
@@ -307,7 +308,8 @@ case class Schema(
     case _ if $ref.nonEmpty => Type.TRef($ref.get.stripPrefix("#/definitions/"))
     case _ if `type`.contains("integer") && format.contains("int32") => Type.TInt
     case _ if `type`.contains("integer") => Type.TLong
-    case _ if `type`.contains("number") => Type.TNum
+    case _ if `type`.contains("number") && format.contains("float32") => Type.TFloat
+    case _ if `type`.contains("number") => Type.TDouble
     case _ if `type`.contains("string") => Type.TString
     case _ if `type`.contains("boolean") => Type.TBool
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)

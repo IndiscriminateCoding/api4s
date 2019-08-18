@@ -11,10 +11,8 @@ object Http4sServer {
   private def methodMatcher(m: Method, e: Endpoint): List[String] = {
     import Type._
 
-    val primitives = Set[Type](TString, TInt, TLong, TBool)
-
     def primitiveStr(t: Type): String =
-      if (primitives(t)) typeStr(t)
+      if (primitive(t)) typeStr(t)
       else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = ${e.name.get})")
 
     val paramStr = {

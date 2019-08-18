@@ -31,7 +31,8 @@ object Utils {
     case TJson => "Json"
     case TInt => "Int"
     case TLong => "Long"
-    case TNum => "Double"
+    case TFloat => "Float"
+    case TDouble => "Double"
     case TString => "String"
     case TBool => "Boolean"
     case TMedia => "Media[F]"
@@ -42,6 +43,8 @@ object Utils {
         else "Json"
       s"Map[String, $fldType]"
   }
+
+  val primitive: Set[Type] = Set(TString, TInt, TLong, TFloat, TDouble, TBool)
 
   def typeStr(t: Option[Type]): String = t.fold("Unit")(typeStr)
 }

@@ -9,7 +9,7 @@ object Http4sClient {
   private def endpoint(segments: List[Segment], method: Method, e: Endpoint): List[String] = {
     def addToString(t: Type): String = t match {
       case TString => ""
-      case TInt | TLong | TBool => ".toString"
+      case t if primitive(t) => ".toString"
       case _ => throw new Exception(s"can't convert type $t to String")
     }
 
