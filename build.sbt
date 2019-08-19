@@ -10,7 +10,7 @@ lazy val circeVersion = "0.12.0-M4"
 lazy val http4sVersion = "0.21.0-M2"
 
 lazy val api4s = (project in file("."))
-  .aggregate(codegen, runtime, `sbt-plugin`)
+  .aggregate(codegen, core, `sbt-plugin`)
   .settings(
     publish / skip := true,
     crossScalaVersions := Nil
@@ -27,8 +27,9 @@ lazy val codegen = (project in file("codegen"))
     )
   )
 
-lazy val runtime = (project in file("core"))
+lazy val core = (project in file("core"))
   .settings(
+    Compile / sourceGenerators += (Compile / sourceManaged).map(Boilerplate(_)).taskValue,
     crossScalaVersions := scalaVersions,
     name := "api4s-core",
     scalacOptions ++= Seq(
