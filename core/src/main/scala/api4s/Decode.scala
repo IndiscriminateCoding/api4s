@@ -38,9 +38,7 @@ object Decode {
     L: Location[I]
   ): Decode[I, A] = (in, name) => D(in, name).fold(Invalid(_), {
     case x :: _ => Valid(x)
-    case Nil => Invalid(NonEmptyChain(
-      DecodingError(s"$L parameter (name=$name) not found", "")
-    ))
+    case Nil => Validated.invalidNec(DecodingError(s"$L parameter (name=$name) not found", ""))
   })
 
   implicit def decodeOption[I, A](implicit D: Decode[I, List[A]]): Decode[I, Option[A]] =
@@ -104,10 +102,10 @@ object Decode {
     (in, name) =>
       try Valid(cast(in))
       catch {
-        case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
+        case NonFatal(_) => Validated.invalidNec(DecodingError(
           sanitized = s"can't convert path parameter (name=$name) to $typeName",
           details = s"value=${Json.fromString(in)}"
-        )))
+        ))
       }
 
   def decodeListFromCastAndGet[I, A](
@@ -121,10 +119,10 @@ object Decode {
     get(in, name).traverse(s =>
       try Valid(cast(s))
       catch {
-        case NonFatal(_) => Invalid(NonEmptyChain(DecodingError(
+        case NonFatal(_) => Validated.invalidNec(DecodingError(
           sanitized = s"can't convert $L parameter (name=$name) to $typeName",
           details = s"value=${Json.fromString(s)}"
-        )))
+        ))
       }
     )
   }

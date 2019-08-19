@@ -1,9 +1,10 @@
 package api4s.internal
 
 import api4s.Media
-import cats.Applicative
-import cats.data.Chain
+import cats.data.Validated._
+import cats.data.{ Chain, Validated, ValidatedNec }
 import cats.effect.Sync
+import cats.{ Applicative, FlatMap }
 import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
@@ -90,6 +91,22 @@ object Helpers {
       case None => f(None)
       case Some(_) => r.decode[A](a => f(Some(a)))(F, circeEntityDecoder[F, A])
     }
+
+    def decodeValidatedOpt[A: Decoder](
+      f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
+    )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
+      headerOpt[String]("Content-Type") match {
+        case None => f(Valid(None))
+        case Some(_) => decodeValidated[A](x => f(x.map(Some(_))))
+      }
+
+    def decodeValidated[A](
+      f: ValidatedNec[Throwable, A] => F[Response[F]]
+    )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
+      F.flatMap(D.decode(r, strict = true).value) {
+        case Left(e) => f(Validated.invalidNec(e))
+        case Right(x) => f(Valid(x))
+      }
   }
 
   implicit class RichUrlForm(val f: Map[String, Chain[String]]) extends AnyVal {
