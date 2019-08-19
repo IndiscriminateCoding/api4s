@@ -3,12 +3,12 @@ package api4s
 import cats.data.Validated._
 import cats.data._
 import io.circe.Json
-import org.http4s.{ Headers, Query, UrlForm }
+import org.http4s._
 
 import scala.util.control.NonFatal
 
 trait Decode[-I, +A] {
-  def apply(in: I, name: String): ValidatedNec[DecodingError.One, A]
+  def apply(in: I, name: String): ValidatedNec[Throwable, A]
 
   final def contramap[B](f: B => I): Decode[B, A] = (in, name) => apply(f(in), name)
 
@@ -21,7 +21,7 @@ object Decode {
   class DecodePartiallyApplied[A](private val _unused: Unit = ()) extends AnyVal {
     def apply[In](in: In, name: String)(implicit
       decode: Decode[In, A]
-    ): ValidatedNec[DecodingError.One, A] = decode(in, name)
+    ): ValidatedNec[Throwable, A] = decode(in, name)
   }
 
   final class Location[T](val get: String) extends AnyVal {
@@ -38,7 +38,7 @@ object Decode {
     L: Location[I]
   ): Decode[I, A] = (in, name) => D(in, name).fold(Invalid(_), {
     case x :: _ => Valid(x)
-    case Nil => Validated.invalidNec(DecodingError(s"$L parameter (name=$name) not found", ""))
+    case Nil => Validated.invalidNec(ParseFailure(s"$L parameter (name=$name) not found", ""))
   })
 
   implicit def decodeOption[I, A](implicit D: Decode[I, List[A]]): Decode[I, Option[A]] =
@@ -102,7 +102,7 @@ object Decode {
     (in, name) =>
       try Valid(cast(in))
       catch {
-        case NonFatal(_) => Validated.invalidNec(DecodingError(
+        case NonFatal(_) => Validated.invalidNec(ParseFailure(
           sanitized = s"can't convert path parameter (name=$name) to $typeName",
           details = s"value=${Json.fromString(in)}"
         ))
@@ -119,7 +119,7 @@ object Decode {
     get(in, name).traverse(s =>
       try Valid(cast(s))
       catch {
-        case NonFatal(_) => Validated.invalidNec(DecodingError(
+        case NonFatal(_) => Validated.invalidNec(ParseFailure(
           sanitized = s"can't convert $L parameter (name=$name) to $typeName",
           details = s"value=${Json.fromString(s)}"
         ))
