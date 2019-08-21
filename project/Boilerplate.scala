@@ -7,7 +7,7 @@ object Boilerplate {
     val file = root / "api4s" / "utils" / "validated" / "MapN.scala"
     IO.write(file, List(
       List(
-        "package api4s.utils",
+        "package api4s.utils.validated",
         "",
         "import cats.data.Validated._",
         "import cats.data.{ Chain, NonEmptyChain, ValidatedNec }",

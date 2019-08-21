@@ -15,30 +15,27 @@ object Http4sServer {
       if (primitive(t)) typeStr(t)
       else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = ${e.name.get})")
 
-    val paramStr = {
-      val ps = e.orderedParameters.map {
-        case (Parameter.Path, Parameter(n, TString, true)) => n
-        case (Parameter.Path, Parameter(n, t, true)) =>
-          s"Helpers.parser[${primitiveStr(t)}].required($n)"
-        case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
-          s"""request.header${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
-        case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
-          s"""request.queries[${primitiveStr(t)}]("$rn")"""
-        case (Parameter.Query(rn), Parameter(_, t, req)) =>
-          s"""request.query${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
-        case (Parameter.Body(_), Parameter(_, TMedia, _)) => "Media(request)"
-        case (Parameter.Body(_), Parameter(n, _, _)) => n
-        case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
-          s"""_formData.values.params[${primitiveStr(t)}]("$rn")"""
-        case (Parameter.InlinedBody(rn), Parameter(_, t, req)) =>
-          s"""_formData.values.param${if (req) "" else "Opt"}[${primitiveStr(t)}]("$rn")"""
-        case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
-      }
-
-      ps.mkString(", ")
+    val params = e.orderedParameters.map {
+      case (Parameter.Path, Parameter(n, t, true)) =>
+        s"""Decode[${primitiveStr(t)}]($n, "$n")"""
+      case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
+        val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
+        s"""Decode[$ts](request.headers, "$rn")"""
+      case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
+        s"""Decode[List[${primitiveStr(t)}]](request.uri.query, "$rn")"""
+      case (Parameter.Query(rn), Parameter(_, t, req)) =>
+        val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
+        s"""Decode[$ts](request.uri.query, "$rn")"""
+      case (Parameter.Body(_), Parameter(_, TMedia, _)) =>
+        "cats.data.Validated.Valid(Media(request))"
+      case (Parameter.Body(_), Parameter(n, _, _)) => n
+      case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
+        s"""Decode[List[${primitiveStr(t)}]](_fromData, "$rn")"""
+      case (Parameter.InlinedBody(rn), Parameter(_, t, req)) =>
+        val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
+        s"""Decode[$ts](_formData, "$rn")"""
+      case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
-
-    val apiCall = s"api.${e.name.get}${if (paramStr.isEmpty) "" else s"($paramStr)"}"
 
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
       case None => s"Helpers.emptyResponse[F](Status.$c)"
@@ -52,17 +49,17 @@ object Http4sServer {
         s"Helpers.mediaResponse[F](Status.$c)"
     }
 
-    val apiWithExtractor = e.produces match {
+    val apiMapper = e.produces match {
       case Produces.Untyped =>
         List(
-          s"F.map($apiCall.allocated) {",
+          "F.map(x.allocated) {",
           "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
           "}"
         )
       case Produces.One(c, t @ None) =>
-        List(s"F.map($apiCall)(_ => ${responseMapperStr(c, t)})")
+        List(s"F.map(x)(_ => ${responseMapperStr(c, t)})")
       case Produces.One(c, t @ Some(_)) =>
-        List(s"F.map($apiCall)(${responseMapperStr(c, t)})")
+        List(s"F.map(x)(${responseMapperStr(c, t)})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
           case ((c, t @ None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
@@ -70,34 +67,41 @@ object Http4sServer {
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
         } :+ "case Inr(Inr(cnil)) => cnil.impossible"
         List(
-          List(s"F.map($apiCall) {"),
+          List("F.map(x) {"),
           mapper.map("  " + _),
           List("}")
         ).flatten
     }
-    val apiCallWithBody = e.requestBody.consumes match {
-      case Consumes.JsonBody(n, t) if e.requestBody.required =>
-        val decoder = s"Helpers.circeEntityDecoder[F, ${typeStr(t)}]"
+
+    val apiValidated =
+      if (e.orderedParameters.isEmpty) apiMapper
+      else
         List(
-          List(s"request.decodeWith($decoder, true)($n =>"),
-          apiWithExtractor.map("  " + _),
+          List("_validatedMapN("),
+          params.map(p => s"  $p,"),
+          List(s"  api.${e.name.get}"),
+          List(").fold[F[Response[F]]](e => F.raiseError(Errors(e)), x =>"),
+          apiMapper.map("  " + _),
           List(")")
         ).flatten
+
+    val apiCallWithBody = e.requestBody.consumes match {
       case Consumes.JsonBody(n, t) =>
+        val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"request.decodeJsonOpt[${typeStr(t)}]($n => "),
-          apiWithExtractor.map("  " + _),
-          List(")")
+          List(s"request.decodeValidated$opt[${typeStr(t)}]($n =>"),
+          apiValidated.map("  " + _),
+          List(s")(F, Helpers.circeEntityDecoder[F, ${typeStr(t)}])")
         ).flatten
       case Consumes.FormData(_) =>
-        val decoder = s"http4s.UrlForm.entityDecoder[F]"
+        val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"request.decodeWith($decoder, true)(_formData => "),
-          apiWithExtractor.map("  " + _),
-          List(")")
+          List(s"request.decodeValidated$opt[http4s.UrlForm](_formData =>"),
+          apiValidated.map("  " + _),
+          List(s")(F, http4s.UrlForm.entityDecoder[F]")
         ).flatten
-      case Consumes.Entity(_, _) => apiWithExtractor
-      case Consumes.Empty => apiWithExtractor
+      case Consumes.Entity(_, _) => apiValidated
+      case Consumes.Empty => apiValidated
     }
 
     s"case Method.${m.toString.toUpperCase} =>" :: apiCallWithBody.map("  " + _)
@@ -132,11 +136,12 @@ object Http4sServer {
       List(
         s"package $pkg",
         "",
-        "import api4s.{ Endpoint, Media }",
+        "import api4s.{ Decode, Endpoint, Errors, Media }",
         "import api4s.Endpoint.RoutingErrorAlgebra",
         "import api4s.internal.Helpers",
         "import api4s.internal.Helpers.{ RichRequest, RichUrlForm }",
         "import api4s.outputs._",
+        "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.effect.{ Resource, Sync }",
         "import org.http4s.{ Method, Request, Response, Status }",
         "import org.http4s",
