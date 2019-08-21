@@ -92,7 +92,7 @@ object Helpers {
       case Some(_) => r.decode[A](a => f(Some(a)))(F, circeEntityDecoder[F, A])
     }
 
-    def decodeValidatedOpt[A: Decoder](
+    def decodeValidatedOpt[A](
       f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
     )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
       headerOpt[String]("Content-Type") match {
