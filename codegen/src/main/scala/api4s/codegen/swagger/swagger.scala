@@ -72,10 +72,10 @@ object Root {
     import io.circe.generic.auto._
     import io.circe.yaml.parser.parse
 
-    parse(s)
-      .right.get
-      .as[Root]
-      .right.get
+    parse(s).fold(
+      throw _,
+      _.as[Root].fold(throw _, identity)
+    )
   }
 }
 
