@@ -1,10 +1,11 @@
 ThisBuild / organization := "com.github.IndiscriminateCoding"
-ThisBuild / scalaVersion := "2.12.8"
-ThisBuild / version := "0.0.2"
+ThisBuild / scalaVersion := "2.12.9"
+ThisBuild / version := "0.0.3"
 
 lazy val example = (project in file("."))
   .enablePlugins(Api4s)
   .settings(
+    scalacOptions += "-language:higherKinds",
     api4sSources := Seq(Api4s.Src(
       file = sourceDirectory.value / "main" / "swagger" / "petstore.yaml",
       pkg = "example.petstore",

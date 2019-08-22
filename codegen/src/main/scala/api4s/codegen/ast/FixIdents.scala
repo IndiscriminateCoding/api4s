@@ -24,8 +24,7 @@ object FixIdents {
     "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
     "Inl", "Inr",
 
-    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "RichUrlForm", "Endpoint", "Decode",
-    "Errors",
+    "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media",
 

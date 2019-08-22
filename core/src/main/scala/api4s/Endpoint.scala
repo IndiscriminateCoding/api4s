@@ -6,7 +6,7 @@ import cats.data.Kleisli
 import org.http4s._
 
 trait Endpoint[F[_]] { self =>
-  protected def apply(r: Request[F])(R: RoutingErrorAlgebra[F]): F[Response[F]]
+  def apply(r: Request[F])(R: RoutingErrorAlgebra[F]): F[Response[F]]
 
   final def orElse(other: Endpoint[F]): Endpoint[F] = new Endpoint[F] {
     def apply(request: Request[F])(R: RoutingErrorAlgebra[F]): F[Response[F]] =
