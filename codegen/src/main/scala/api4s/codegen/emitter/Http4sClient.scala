@@ -67,18 +67,35 @@ object Http4sClient {
 
         List(
           s"val _formData = mutable.Buffer[(String, String)]($requiredFormParams)",
-          "val _encoder = Helpers.urlFormEncoder[F]",
+          "val _encoder = http4s.UrlForm.entityEncoder[F]",
           "_headers ++= _encoder.headers.toList"
         ) ++ optFormParams
     }
+    val entity = {
+      val entityLen =
+        """_entity.length foreach(l => _headers += http4s.Header("Content-Length", l.toString))"""
+      e.requestBody.consumes match {
+        case Consumes.Empty => Nil
+        case Consumes.FormData(_) => List(
+          "val _entity = _encoder.toEntity(http4s.UrlForm(_formData: _*))",
+          entityLen
+        )
+        case Consumes.JsonBody(n, _) if !e.requestBody.required => List(
+          s"val _entity = $n.fold[http4s.Entity[F]](http4s.Entity.empty)(_encoder.toEntity(_))",
+          entityLen
+        )
+        case Consumes.JsonBody(n, _) => List(
+          s"val _entity = _encoder.toEntity($n)",
+          entityLen
+        )
+        case Consumes.Entity(_, _) => Nil
+      }
+    }
     val bodyStr = e.requestBody.consumes match {
       case Consumes.Empty => Nil
-      case Consumes.Entity(n, _) => List(s"body = $n.body, ")
-      case Consumes.JsonBody(n, _) if !e.requestBody.required =>
-        List(s"body = $n.fold[fs2.Stream[F, Byte]](fs2.Stream.empty)(_encoder.toEntity(_).body),")
-      case Consumes.JsonBody(n, _) => List(s"body = _encoder.toEntity($n).body,")
-      case Consumes.FormData(_) =>
-        List(s"body = _encoder.toEntity(http4s.UrlForm(_formData: _*)).body,")
+      case Consumes.Entity(n, _) => List(s"body = $n.body,")
+      case Consumes.JsonBody(_, _) => List("body = _entity.body,")
+      case Consumes.FormData(_) => List("body = _entity.body,")
     }
 
     def runOn(rs: List[(String, Option[(MediaType, Type)])]): List[String] = {
@@ -127,6 +144,7 @@ object Http4sClient {
       List(s"  val _headers = mutable.Buffer[http4s.Header]($requiredHdrParams)"),
       encoder.map("  " + _),
       params.map("  " + _),
+      entity.map("  " + _),
       List(
         List("val _request = Request[F]("),
         List(s"  method = Method.${method.toString.toUpperCase},"),
