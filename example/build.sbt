@@ -1,6 +1,6 @@
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := "2.12.9"
-ThisBuild / version := "0.0.5"
+ThisBuild / version := "0.0.6"
 
 lazy val example = (project in file("."))
   .enablePlugins(Api4s)
