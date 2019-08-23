@@ -5,8 +5,9 @@ import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
 import cats.effect.Sync
 import cats.{ Applicative, FlatMap }
-import fs2.Chunk
+import fs2.{ Chunk, Stream }
 import io.circe.{ Decoder, Encoder, Printer }
+import org.http4s.EntityEncoder.encodeBy
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.headers.`Content-Type`
@@ -42,17 +43,16 @@ object Helpers {
   /* UrlForm encoder that doesn't use chunked transfer encoding
    * TODO: replace with encoder from http4s when it will be changed
    */
-  def urlFormEncoder[F[_]]: EntityEncoder[F, UrlForm] = new EntityEncoder[F, UrlForm] {
-    def toEntity(urlForm: UrlForm): Entity[F] = {
-      val s = UrlForm.encodeString(DefaultCharset)(urlForm)
-      val bs = s.getBytes(DefaultCharset.nioCharset)
+  def urlFormEncoder[F[_]]: EntityEncoder[F, UrlForm] = {
+    val hdr = `Content-Type`(MediaType.application.`x-www-form-urlencoded`, DefaultCharset)
+    encodeBy(hdr) { f =>
+      val bytes = UrlForm.encodeString(DefaultCharset)(f).getBytes(DefaultCharset.nioCharset)
+
       Entity(
-        body = fs2.Stream.chunk(Chunk.bytes(bs)),
-        length = Some(bs.length)
+        body = Stream.chunk(Chunk.bytes(bytes)),
+        length = Some(bytes.length)
       )
     }
-
-    def headers: Headers = Headers.empty
   }
 
   def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {
