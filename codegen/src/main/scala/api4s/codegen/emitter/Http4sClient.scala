@@ -67,7 +67,7 @@ object Http4sClient {
 
         List(
           s"val _formData = mutable.Buffer[(String, String)]($requiredFormParams)",
-          "val _encoder = http4s.UrlForm.entityEncoder[F]",
+          "val _encoder = Helpers.urlFormEncoder[F]",
           "_headers ++= _encoder.headers.toList"
         ) ++ optFormParams
     }

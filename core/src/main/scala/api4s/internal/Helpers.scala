@@ -39,6 +39,22 @@ object Helpers {
 
   def circeEntityDecoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
+  /* UrlForm encoder that doesn't use chunked transfer encoding
+   * TODO: replace with encoder from http4s when it will be changed
+   */
+  def urlFormEncoder[F[_]]: EntityEncoder[F, UrlForm] = new EntityEncoder[F, UrlForm] {
+    def toEntity(urlForm: UrlForm): Entity[F] = {
+      val s = UrlForm.encodeString(DefaultCharset)(urlForm)
+      val bs = s.getBytes(DefaultCharset.nioCharset)
+      Entity(
+        body = fs2.Stream.chunk(Chunk.bytes(bs)),
+        length = Some(bs.length)
+      )
+    }
+
+    def headers: Headers = Headers.empty
+  }
+
   def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {
     val encoder = circeEntityEncoder[F, A]
     val entity = encoder.toEntity(a)
