@@ -5,11 +5,11 @@ import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
 import cats.effect.Sync
 import cats.{ Applicative, FlatMap }
-import fs2.{ Chunk, Stream }
+import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
 import org.http4s.circe._
-import org.http4s.headers.`Content-Type`
+import org.http4s.headers._
 
 object Helpers {
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
@@ -18,9 +18,12 @@ object Helpers {
     def decodeValidatedOpt[A](
       f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
     )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
-      r.headers.get(`Content-Type`) match {
-        case None => f(Valid(None))
-        case Some(_) => decodeValidated[A](x => f(x.map(Some(_))))
+      r.headers.get(`Content-Length`) match {
+        case Some(l) if l.length == 0 => f(Valid(None))
+        case _ => r.headers.get(`Content-Type`) match {
+          case None => f(Valid(None))
+          case Some(_) => decodeValidated[A](x => f(x.map(Some(_))))
+        }
       }
 
     def decodeValidated[A](
