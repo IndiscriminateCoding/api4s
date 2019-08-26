@@ -62,8 +62,8 @@ object Http4sClient {
       case Consumes.Entity(n, _) => List(s"_headers ++= $n.headers.iterator")
       case Consumes.JsonBody(n, t) =>
         val hdrs =
-          if (e.requestBody.required) "_headers ++= _encoder.headers.toList"
-          else s"$n foreach (_ => _headers ++= _encoder.headers.toList)"
+          if (e.requestBody.required) "_encoder.headers.foreach(_headers += _)"
+          else s"$n foreach (_ => _encoder.headers.foreach(_headers += _))"
 
         List(
           s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]",
@@ -82,7 +82,7 @@ object Http4sClient {
         List(
           s"val _formData = mutable.Buffer[(String, String)]($requiredFormParams)",
           "val _encoder = http4s.UrlForm.entityEncoder[F]",
-          "_headers ++= _encoder.headers.toList"
+          "_encoder.headers.foreach(_headers += _)"
         ) ++ optFormParams
     }
     val entity = {
