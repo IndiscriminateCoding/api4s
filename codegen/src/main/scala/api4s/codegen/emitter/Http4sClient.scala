@@ -13,6 +13,11 @@ object Http4sClient {
       case _ => throw new Exception(s"can't convert type $t to String")
     }
 
+    val queryRequired = e.parameters.exists {
+      case (Parameter.Query(_), _) => true
+      case _ => false
+    }
+
     val params = e.parameters flatMap {
       case (Parameter.Query(rn), Parameter(n, TArr(t), _)) =>
         List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
@@ -45,7 +50,7 @@ object Http4sClient {
       if (e.requestBody.consumes == Consumes.Empty)
         """http4s.Header("Content-Length", "0")""" :: res
       else res
-    }.mkString(", ")
+      }.mkString(", ")
 
     val path = segments.map {
       case Segment.Static(s) => s
@@ -149,7 +154,9 @@ object Http4sClient {
 
     List(
       List(ClientServerApi(e) + " = {"),
-      List(s"  val _query = mutable.Buffer[(String, Option[String])]($requiredQueryParams)"),
+      if (queryRequired) List(
+        s"  val _query = mutable.Buffer[(String, Option[String])]($requiredQueryParams)"
+      ) else Nil,
       List(s"  val _headers = mutable.Buffer[http4s.Header]($requiredHdrParams)"),
       encoder.map("  " + _),
       params.map("  " + _),
@@ -158,8 +165,8 @@ object Http4sClient {
         List("val _request = Request[F]("),
         List(s"  method = Method.${method.toString.toUpperCase},"),
         List(s"  uri = http4s.Uri("),
-        List(s"""    path = s"/$path","""),
-        List("    query = http4s.Query(_query: _*)"),
+        if (queryRequired) List("    query = http4s.Query(_query: _*),") else Nil,
+        List(s"""    path = s"/$path""""),
         List("  ),"),
         bodyStr.map("  " + _),
         List("  headers = http4s.Headers.of(_headers: _*)"),
