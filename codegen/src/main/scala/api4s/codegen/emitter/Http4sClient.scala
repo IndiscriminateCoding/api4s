@@ -22,6 +22,7 @@ object Http4sClient {
         List(s"""$n foreach (x => _headers += http4s.Header("$rn", x${addToString(t)}))""")
       case _ => Nil
     }
+
     val requiredQueryParams = e.parameters.filter {
       case (Parameter.Query(_), Parameter(_, TArr(_), _)) => false
       case (Parameter.Query(_), p) => p.required
@@ -30,14 +31,22 @@ object Http4sClient {
       case (Parameter.Query(rn), Parameter(n, t, _)) => s""""$rn" -> Some($n${addToString(t)})"""
       case _ => throw new Exception("never happens")
     }.mkString(", ")
-    val requiredHdrParams = e.parameters.filter {
-      case (Parameter.Hdr(_), p) => p.required
-      case _ => false
-    }.map {
-      case (Parameter.Hdr(rn), Parameter(n, t, _)) =>
-        s"""http4s.Header("$rn", $n${addToString(t)})"""
-      case _ => throw new Exception("never happens")
+
+    val requiredHdrParams = {
+      val res = e.parameters.filter {
+        case (Parameter.Hdr(_), p) => p.required
+        case _ => false
+      }.map {
+        case (Parameter.Hdr(rn), Parameter(n, t, _)) =>
+          s"""http4s.Header("$rn", $n${addToString(t)})"""
+        case _ => throw new Exception("never happens")
+      }
+
+      if (e.requestBody.consumes == Consumes.Empty)
+        """http4s.Header("Content-Length", "0")""" :: res
+      else res
     }.mkString(", ")
+
     val path = segments.map {
       case Segment.Static(s) => s
       case Segment.Argument(p) => s"$$$p"
@@ -81,7 +90,7 @@ object Http4sClient {
           entityLen
         )
         case Consumes.JsonBody(n, _) if !e.requestBody.required => List(
-          s"val _entity = $n.fold[http4s.Entity[F]](http4s.Entity.empty)(_encoder.toEntity(_))",
+          s"val _entity = $n.fold[http4s.Entity[F]](http4s.Entity.empty)(_encoder.toEntity)",
           entityLen
         )
         case Consumes.JsonBody(n, _) => List(
