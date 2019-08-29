@@ -65,7 +65,7 @@ object Http4sServer {
           case ((c, t @ None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
           case ((c, t @ Some(_)), i) =>
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
-        } :+ "case Inr(Inr(cnil)) => cnil.impossible"
+        } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
           List("F.map(x) {"),
           mapper.map("  " + _),

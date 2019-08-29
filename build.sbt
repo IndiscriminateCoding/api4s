@@ -18,6 +18,7 @@ lazy val api4s = (project in file("."))
 
 lazy val codegen = (project in file("codegen"))
   .settings(
+    Compile / sourceGenerators += (Compile / sourceManaged).map(Boilerplate.codegen).taskValue,
     crossScalaVersions := scalaVersions,
     name := "api4s-codegen",
     libraryDependencies ++= Seq(
@@ -29,7 +30,7 @@ lazy val codegen = (project in file("codegen"))
 
 lazy val core = (project in file("core"))
   .settings(
-    Compile / sourceGenerators += (Compile / sourceManaged).map(Boilerplate(_)).taskValue,
+    Compile / sourceGenerators += (Compile / sourceManaged).map(Boilerplate.core).taskValue,
     crossScalaVersions := scalaVersions,
     name := "api4s-core",
     scalacOptions ++= Seq(

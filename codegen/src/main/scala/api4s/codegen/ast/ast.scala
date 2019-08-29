@@ -68,9 +68,11 @@ case class Endpoint(
   parameters: List[(Parameter.Kind, Parameter)],
   responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]
 ) {
-  responses.getOrElse(Some(204), ListMap.empty) foreach {
-    case (_, Response(Some(_), _)) =>
-      throw new IllegalArgumentException(s"Non-empty 204 response for endpoint $name")
+  import api4s.codegen.utils.Registry.registry
+
+  responses foreach {
+    case (Some(c), rs) if registry.get(c).exists(!_._2) && rs.values.exists(_.t.nonEmpty) =>
+      throw new IllegalArgumentException(s"Non-empty $c response for endpoint $name")
     case _ =>
   }
 
@@ -108,17 +110,10 @@ case class Endpoint(
   lazy val produces: Produces = {
     import Produces._
 
-    val known = Map(
-      200 -> "Ok",
-      201 -> "Created",
-      202 -> "Accepted",
-      204 -> "NoContent"
-    )
-
     val typed = responses.forall { case (_, rs) =>
       rs.forall { case (mr, r) => mr.isInstanceOf[MediaType] && !r.haveHeaders } &&
         rs.size <= 1
-    } && responses.exists(_._1.exists(known.contains))
+    } && responses.exists(_._1.exists(registry.contains))
 
     def getMediaType(rs: ListMap[MediaRange, Response]): Option[(MediaType, Type)] = for {
       (mr, r) <- rs.headOption
@@ -130,14 +125,14 @@ case class Endpoint(
       case _ if responses.contains(None) => Untyped
       case _ if !typed => Untyped
       case _ =>
-        val filtered = responses.filter(_._1.exists(known.contains))
+        val filtered = responses.filter(_._1.exists(registry.contains))
         if (filtered.size > 1)
           Many(ListMap(filtered.toList.map {
-            case (st, rs) => known(st.get) -> getMediaType(rs)
+            case (st, rs) => registry(st.get)._1 -> getMediaType(rs)
           }: _*))
         else {
           val (st, rs) = filtered.head
-          One(known(st.get), getMediaType(rs))
+          One(registry(st.get)._1, getMediaType(rs))
         }
     }
   }

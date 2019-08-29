@@ -1,6 +1,6 @@
 package api4s.sbt
 
-import api4s.codegen.ast.Stages
+import api4s.codegen.ast.{ Api, Stages }
 import api4s.codegen.emitter._
 import api4s.codegen.swagger
 import sbt.Keys._
@@ -9,7 +9,29 @@ import sbt._
 import scala.collection.mutable
 
 object Api4s extends AutoPlugin {
-  case class Src(file: File, pkg: String, server: Boolean = true, client: Boolean = true)
+  case class Src(
+    file: File,
+    pkg: String,
+    server: Boolean = true,
+    client: Boolean = true,
+    f: Api => Api = identity
+  ) {
+    import api4s.codegen.Utils.ListMapOps
+
+    def map(g: Api => Api): Src = copy(f = g compose this.f)
+
+    private[this] def filterResponsesByCode(p: Option[Int] => Boolean): Src = map { api =>
+      api.copy(
+        endpoints = api.endpoints.mapValueList(_.mapValueList { e =>
+          e.copy(responses = e.responses.filter { case (c, _) => p(c) })
+        })
+      )
+    }
+
+    def without4xx: Src = filterResponsesByCode(_.exists(c => c < 400 || c >= 500))
+
+    def without5xx: Src = filterResponsesByCode(_.exists(c => c < 500))
+  }
 
   object autoImport {
     val api4sSources = settingKey[Seq[Src]]("Sources for api4s codegen")
@@ -21,10 +43,10 @@ object Api4s extends AutoPlugin {
       def parsePkg(s: String): File =
         s.split('.').foldLeft((sourceManaged in Compile).value) { case (pkg, frg) => pkg / frg }
 
-      api4sSources.value flatMap { case Src(file, pkg, server, client) =>
+      api4sSources.value flatMap { case Src(file, pkg, server, client, f) =>
         val src = scala.io.Source.fromFile(file)
         val api = try {
-          Stages(swagger.Root(src.mkString).api)
+          f(Stages(swagger.Root(src.mkString).api))
         } finally {
           src.close()
         }

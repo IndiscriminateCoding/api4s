@@ -24,6 +24,10 @@ object Utils {
     if (i == 0) s"Inl($v)"
     else s"Inr(${shapelessPat(i - 1, v)})"
 
+  def shapelessCNil(i: Int): String =
+    if (i == 1) s"Inr(cnil)"
+    else s"Inr(${shapelessCNil(i - 1)})"
+
   def typeStr(t: Type): String = t match {
     case TRef(name) => name
     case TMap(et) => s"Map[String, ${typeStr(et)}]"
