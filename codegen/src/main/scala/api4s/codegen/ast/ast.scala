@@ -71,8 +71,12 @@ case class Endpoint(
   import api4s.codegen.utils.Registry.registry
 
   responses foreach {
-    case (Some(c), rs) if registry.get(c).exists(!_._2) && rs.values.exists(_.t.nonEmpty) =>
-      throw new IllegalArgumentException(s"Non-empty $c response for endpoint $name")
+    case (Some(c), rs) =>
+      def canHaveEntity = registry.get(c).fold(true) { case (_, allowed) => allowed }
+      def entityExists = rs.values.exists(_.t.nonEmpty)
+
+      if (!canHaveEntity && entityExists)
+        throw new IllegalArgumentException(s"Non-empty $c response for endpoint $name")
     case _ =>
   }
 

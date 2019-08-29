@@ -18,9 +18,9 @@ object Api4s extends AutoPlugin {
   ) {
     import api4s.codegen.Utils.ListMapOps
 
-    def map(g: Api => Api): Src = copy(f = g compose this.f)
+    def map(g: Api => Api): Src = copy(f = g compose f)
 
-    private[this] def filterResponsesByCode(p: Option[Int] => Boolean): Src = map { api =>
+    private[this] def filterByCode(p: Option[Int] => Boolean): Src = map { api =>
       api.copy(
         endpoints = api.endpoints.mapValueList(_.mapValueList { e =>
           e.copy(responses = e.responses.filter { case (c, _) => p(c) })
@@ -28,9 +28,11 @@ object Api4s extends AutoPlugin {
       )
     }
 
-    def without4xx: Src = filterResponsesByCode(_.exists(c => c < 400 || c >= 500))
+    def without4xx: Src = filterByCode(_.exists(c => c < 400 || c >= 500))
 
-    def without5xx: Src = filterResponsesByCode(_.exists(c => c < 500))
+    def without5xx: Src = filterByCode(_.exists(c => c < 500))
+
+    def withoutDefault: Src = filterByCode(_.nonEmpty)
   }
 
   object autoImport {
