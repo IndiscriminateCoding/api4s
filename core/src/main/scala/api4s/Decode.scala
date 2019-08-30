@@ -1,5 +1,6 @@
 package api4s
 
+import api4s.internal.Helpers
 import cats.data.Validated._
 import cats.data._
 import io.circe.Json
@@ -100,7 +101,7 @@ object Decode {
 
   def decodePathFromCast[A](cast: String => A, typeName: String): Decode[String, A] =
     (in, name) =>
-      try Valid(cast(in))
+      try Valid(cast(Helpers.pathDecode(in)))
       catch {
         case NonFatal(_) => Validated.invalidNec(ParseFailure(
           sanitized = s"can't convert path parameter (name=$name) to $typeName",

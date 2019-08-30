@@ -47,14 +47,15 @@ object Http4sClient {
         case _ => throw new Exception("never happens")
       }
 
-      if (e.requestBody.consumes == Consumes.Empty)
+      val needsZeroContentLength: Set[Method] = Set(Method.Patch, Method.Post, Method.Put)
+      if (e.requestBody.consumes == Consumes.Empty && needsZeroContentLength(method))
         """http4s.Header("Content-Length", "0")""" :: res
       else res
       }.mkString(", ")
 
     val path = segments.map {
       case Segment.Static(s) => s
-      case Segment.Argument(p) => s"$$$p"
+      case Segment.Argument(p) => s"$${Helpers pathEncode $p}"
     }.mkString("/")
 
     val encoder = e.requestBody.consumes match {
