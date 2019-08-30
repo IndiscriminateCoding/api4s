@@ -3,6 +3,7 @@ package api4s.codegen.ast
 import api4s.codegen.Utils._
 import api4s.codegen.ast.Segment._
 import api4s.codegen.ast.Type._
+import api4s.codegen.utils.Registry
 
 import scala.collection.immutable.ListMap
 
@@ -26,12 +27,8 @@ object FixIdents {
 
     "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors",
 
-    "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media",
-
-    "Ok", "Created", "Accepted", "NoContent"
-    //"BadRequest", "Unauthorized", "Forbidden", "NotFound",
-    //"InternalServerError", "BadGateway", "ServiceUnavailable", "GatewayTimeout"
-  )
+    "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media"
+  ) ++ Registry.registry.map { case (_, (n, _)) => n }
 
   private class Renamer(
     prefix: String,
