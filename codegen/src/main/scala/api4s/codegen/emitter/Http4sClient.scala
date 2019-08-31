@@ -55,7 +55,13 @@ object Http4sClient {
 
     val path = segments.map {
       case Segment.Static(s) => s
-      case Segment.Argument(p) => s"$${Helpers pathEncode $p}"
+      case Segment.Argument(p) =>
+        val needEncode = e.parameters.exists {
+          case (Parameter.Path, Parameter(n, TString, _)) if n == p => true
+          case _ => false
+        }
+        if (needEncode) s"$${Helpers pathEncode $p}"
+        else s"$$$p"
     }.mkString("/")
 
     val encoder = e.requestBody.consumes match {

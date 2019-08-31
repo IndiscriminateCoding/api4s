@@ -46,7 +46,7 @@ object Decode {
     D.map(_.headOption)
 
   implicit val decodeStringFromPath: Decode[String, String] =
-    decodePathFromCast(identity, "String")
+    decodePathFromCast(Helpers.pathDecode, "String")
   implicit val decodeListStringFromUrlForm: Decode[UrlForm, List[String]] =
     decodeListFromUrlForm(identity, "String")
   implicit val decodeListStringFromQuery: Decode[Query, List[String]] =
@@ -101,7 +101,7 @@ object Decode {
 
   def decodePathFromCast[A](cast: String => A, typeName: String): Decode[String, A] =
     (in, name) =>
-      try Valid(cast(Helpers.pathDecode(in)))
+      try Valid(cast(in))
       catch {
         case NonFatal(_) => Validated.invalidNec(ParseFailure(
           sanitized = s"can't convert path parameter (name=$name) to $typeName",
