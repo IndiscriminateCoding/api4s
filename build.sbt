@@ -1,6 +1,6 @@
 lazy val scalaVersions = List("2.12.9" /*, "2.13.0" */)
 
-ThisBuild / version := "0.0.6"
+ThisBuild / version := "0.0.7"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := scalaVersions.head
 
