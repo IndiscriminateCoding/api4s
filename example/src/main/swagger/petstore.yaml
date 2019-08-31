@@ -22,8 +22,7 @@ produces:
 paths:
   /pets:
     get:
-      description: |
-        Returns all pets from the system that the user has access to
+      description: Returns all pets from with specified tags
       operationId: findPets
       parameters:
         - name: tags
@@ -31,7 +30,7 @@ paths:
           description: tags to filter by
           required: false
           type: array
-          collectionFormat: csv
+          collectionFormat: multi
           items:
             type: string
         - name: limit
@@ -41,14 +40,14 @@ paths:
           type: integer
           format: int32
       responses:
-        "200":
+        200:
           description: pet response
           schema:
             type: array
             items:
               $ref: '#/definitions/Pet'
     post:
-      description: Creates a new pet in the store.  Duplicates are allowed
+      description: Creates or update a pet in the store
       operationId: addPet
       parameters:
         - name: pet
@@ -58,13 +57,17 @@ paths:
           schema:
             $ref: '#/definitions/NewPet'
       responses:
-        "200":
-          description: pet response
+        200:
+          description: pet was updated
+          schema:
+            $ref: '#/definitions/Pet'
+        201:
+          description: pet was created
           schema:
             $ref: '#/definitions/Pet'
   /pets/{id}:
     get:
-      description: Returns a user based on a single ID, if the user does not have access to the pet
+      description: Returns a pet with specified ID
       operationId: findPetById
       parameters:
         - name: id
@@ -74,10 +77,12 @@ paths:
           type: integer
           format: int64
       responses:
-        "200":
+        200:
           description: pet response
           schema:
             $ref: '#/definitions/Pet'
+        404:
+          description: pet not found
     delete:
       description: deletes a single pet based on the ID supplied
       operationId: deletePet
@@ -89,8 +94,10 @@ paths:
           type: integer
           format: int64
       responses:
-        "204":
+        204:
           description: pet deleted
+        404:
+          description: pet not found
 definitions:
   Pet:
     type: "object"
