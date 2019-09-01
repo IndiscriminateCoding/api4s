@@ -23,15 +23,13 @@ class ServerTest extends FlatSpec with Matchers {
     .unsafeRunSync()
     ._1
 
-  private[this] val client = new Http4sClient[IO](Client { r =>
-    // We need to modify Request[F] on-the-fly to set hostname and port
-    blazeClient.run(r.withUri(r.uri.copy(authority = Some(
-      Uri.Authority(
-        host = Uri.RegName("localhost"),
-        port = Some(8080)
-      )
-    ))))
-  })
+  private[this] val client = new Http4sClient[IO](
+    blazeClient,
+    authority = Some(Uri.Authority(
+      host = Uri.RegName("localhost"),
+      port = Some(8080)
+    ))
+  )
 
   it should "create, update, find and delete pets" in {
     // Create
@@ -39,6 +37,7 @@ class ServerTest extends FlatSpec with Matchers {
     val (pet, created) = client.addPet(np).unsafeRunSync() match {
       case Inl(Ok(pet)) => pet -> true
       case Inr(Inl(Created(pet))) => pet -> false
+      case Inr(Inr(cnil)) => cnil.impossible
     }
 
     created shouldBe true
