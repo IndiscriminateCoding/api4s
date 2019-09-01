@@ -35,7 +35,7 @@ case class Root(
   private[this] def resolvedPaths: ListMap[String, PathItem] = insertBasePath
     .paths
     .getOrElse(ListMap.empty)
-    .mapValueList(_.resolve(
+    .mapOnValues(_.resolve(
       responses.getOrElse(ListMap.empty),
       parameters.getOrElse(ListMap.empty),
       consumes,
@@ -62,7 +62,7 @@ case class Root(
         segments -> endpoints
       }
 
-  def types: ListMap[String, Type] = definitions.getOrElse(ListMap.empty).mapValueList(_.getType)
+  def types: ListMap[String, Type] = definitions.getOrElse(ListMap.empty).mapOnValues(_.getType)
 
   def api: Api = Api(types, endpoints)
 }
@@ -89,7 +89,7 @@ case class PathItem(
     c: Option[List[String]],
     p: Option[List[String]]
   ): PathItem = PathItem(
-    ops = ops.mapValueList(_
+    ops = ops.mapOnValues(_
       .addParameters(parameters)
       .resolveResponses(rs)
       .resolveParameters(ps)
@@ -98,7 +98,7 @@ case class PathItem(
     parameters = None
   )
 
-  def endpoints: ListMap[Method, Endpoint] = ops.mapValueList(_.endpoint)
+  def endpoints: ListMap[Method, Endpoint] = ops.mapOnValues(_.endpoint)
 }
 
 object PathItem {
@@ -157,7 +157,7 @@ case class Operation(
   )
 
   def resolveResponses(rs: Map[String, Response]): Operation = copy(
-    responses = responses.mapValues {
+    responses = responses.mapOnValues {
       case r if r.$ref.nonEmpty => rs(r.$ref.get.stripPrefix("#/responses/"))
       case r => r
     }

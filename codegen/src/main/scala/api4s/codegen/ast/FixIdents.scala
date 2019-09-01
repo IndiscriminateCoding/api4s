@@ -107,14 +107,14 @@ object FixIdents {
     def patchType(t: Type): Type = t match {
       case TMap(t) => TMap(patchType(t))
       case TRef(name) => TRef(tnames.find(name))
-      case TObj(fields) => TObj(fields.mapValueList(f => f.copy(t = patchType(f.t))))
+      case TObj(fields) => TObj(fields.mapOnValues(f => f.copy(t = patchType(f.t))))
       case TArr(t) => TArr(patchType(t))
       case t => t
     }
 
     val types = api.types map {
       case (n, t) => tnames.fix(n) -> t
-    } mapValueList {
+    } mapOnValues {
       case TObj(fields) =>
         TObj(fields.map {
           case (n, f) if allowedField(n) => n -> f
@@ -123,7 +123,7 @@ object FixIdents {
           case (n, f) => s"`$n`" -> f
         })
       case t => t
-    } mapValueList { t => patchType(t) }
+    } mapOnValues { t => patchType(t) }
     val opNames = new Renamer("operation", true)
     val endpoints = api.endpoints map { case (segments, methods) =>
       val snames = new Renamer("path", true)
@@ -131,7 +131,7 @@ object FixIdents {
         case Argument(n) => Argument(snames.fix(n))
         case s => s
       }
-      val nmethods = methods mapValueList { ep =>
+      val nmethods = methods mapOnValues { ep =>
         val paramNames = new Renamer("param", true, snames.currentCtx)
         Endpoint(
           name = Some(opNames.fix(ep.name.getOrElse(""))),
@@ -143,7 +143,7 @@ object FixIdents {
             case (pt, p) => pt -> p.copy(name = paramNames.fix(p.name))
           },
           requestBody = RequestBody(
-            ranges = ep.requestBody.ranges.mapValueList {
+            ranges = ep.requestBody.ranges.mapOnValues {
               case TObj(flds) => TObj(ListMap(flds.toList.map {
                 case (k, v) => paramNames.fix(k) -> v
               }: _*))
@@ -152,7 +152,7 @@ object FixIdents {
             name = ep.requestBody.name.orElse(ep.requestBody.proposedName).map(paramNames.fix),
             required = ep.requestBody.required
           ),
-          responses = ep.responses.mapValues(_.mapValueList(r => r.copy(t = r.t.map(patchType))))
+          responses = ep.responses.mapOnValues(_.mapOnValues(r => r.copy(t = r.t.map(patchType))))
         )
       }
       nsegments -> nmethods

@@ -5,7 +5,7 @@ import api4s.codegen.Utils._
 
 object ReorderFields {
   private def reorderTypeParams(ts: ListMap[String, Type]): ListMap[String, Type] =
-    ts.mapValueList {
+    ts.mapOnValues {
       case Type.TObj(fields) =>
         val (required, optional) = fields.partition {
           case (_, Type.Field(Type.TArr(_), _, _)) => false

@@ -1,4 +1,4 @@
-lazy val scalaVersions = List("2.12.9" /*, "2.13.0" */)
+lazy val scalaVersions = List("2.12.9", "2.13.0")
 
 ThisBuild / version := "0.0.7"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
@@ -33,10 +33,12 @@ lazy val core = (project in file("core"))
     Compile / sourceGenerators += (Compile / sourceManaged).map(Boilerplate.core).taskValue,
     crossScalaVersions := scalaVersions,
     name := "api4s-core",
-    scalacOptions ++= Seq(
-      "-language:higherKinds",
-      "-Ypartial-unification"
-    ),
+    scalacOptions += "-language:higherKinds",
+    scalacOptions ++= {
+      if (scalaVersion.value.startsWith("2.12"))
+        Seq("-Ypartial-unification")
+      else Nil
+    },
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % http4sVersion,
       "org.http4s" %% "http4s-circe" % http4sVersion,
@@ -46,7 +48,6 @@ lazy val core = (project in file("core"))
 
 lazy val `sbt-plugin` = (project in file("sbt-plugin"))
   .settings(
-    crossScalaVersions := scalaVersions,
     sbtPlugin := true,
     name := "api4s-sbt",
   )

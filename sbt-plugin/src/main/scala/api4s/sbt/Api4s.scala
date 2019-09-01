@@ -22,7 +22,7 @@ object Api4s extends AutoPlugin {
 
     private[this] def filterByCode(p: Option[Int] => Boolean): Src = map { api =>
       api.copy(
-        endpoints = api.endpoints.mapValueList(_.mapValueList { e =>
+        endpoints = api.endpoints.mapOnValues(_.mapOnValues { e =>
           e.copy(responses = e.responses.filter { case (c, _) => p(c) })
         })
       )
