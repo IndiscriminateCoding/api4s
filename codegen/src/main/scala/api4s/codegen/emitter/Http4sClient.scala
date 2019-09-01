@@ -20,11 +20,11 @@ object Http4sClient {
 
     val params = e.parameters flatMap {
       case (Parameter.Query(rn), Parameter(n, TArr(t), _)) =>
-        List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
+        List(s"""$n foreach (x => _query = _query :+ ("$rn", Some(x${addToString(t)})))""")
       case (Parameter.Query(rn), Parameter(n, t, false)) =>
-        List(s"""$n foreach (x => _query += "$rn" -> Some(x${addToString(t)}))""")
+        List(s"""$n foreach (x => _query = _query :+ ("$rn" -> Some(x${addToString(t)})))""")
       case (Parameter.Hdr(rn), Parameter(n, t, false)) =>
-        List(s"""$n foreach (x => _headers += http4s.Header("$rn", x${addToString(t)}))""")
+        List(s"""$n foreach (x => _hdrs = http4s.Header("$rn", x${addToString(t)}) :: _hdrs)""")
       case _ => Nil
     }
 
@@ -66,11 +66,11 @@ object Http4sClient {
 
     val encoder = e.requestBody.consumes match {
       case Consumes.Empty => Nil
-      case Consumes.Entity(n, _) => List(s"_headers ++= $n.headers.iterator")
+      case Consumes.Entity(n, _) => List(s"_hdrs = $n.headers.toList ++ _hdrs")
       case Consumes.JsonBody(n, t) =>
         val hdrs =
-          if (e.requestBody.required) "_encoder.headers.foreach(_headers += _)"
-          else s"$n foreach (_ => _encoder.headers.foreach(_headers += _))"
+          if (e.requestBody.required) "_hdrs = _encoder.headers.toList ++ _hdrs"
+          else s"$n foreach (_ => _hdrs = _encoder.headers.toList ++ _hdrs)"
 
         List(
           s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]",
@@ -83,18 +83,18 @@ object Http4sClient {
         }.mkString(", ")
         val optFormParams = optFormData.map {
           case (n, Field(t, rn, _)) =>
-            s"""$n foreach (x => _formData += "$rn" -> x${addToString(t)})"""
+            s"""$n foreach (x => _formData = ("$rn", x${addToString(t)}) :: _formData)"""
         }
 
         List(
-          s"val _formData = mutable.Buffer[(String, String)]($requiredFormParams)",
+          s"var _formData = List[(String, String)]($requiredFormParams)",
           "val _encoder = http4s.UrlForm.entityEncoder[F]",
-          "_encoder.headers.foreach(_headers += _)"
+          "_hdrs = _encoder.headers.toList ++ _hdrs"
         ) ++ optFormParams
     }
     val entity = {
-      val entityLen =
-        """_entity.length foreach(l => _headers += http4s.Header("Content-Length", l.toString))"""
+      val entityLen = "_entity.length.foreach(l =>" +
+        " _hdrs = http4s.Header(\"Content-Length\", l.toString) :: _hdrs)"
       e.requestBody.consumes match {
         case Consumes.Empty => Nil
         case Consumes.FormData(_) => List(
@@ -162,9 +162,9 @@ object Http4sClient {
     List(
       List(ClientServerApi(e) + " = {"),
       if (queryRequired) List(
-        s"  val _query = mutable.Buffer[(String, Option[String])]($requiredQueryParams)"
+        s"  var _query = Vector[(String, Option[String])]($requiredQueryParams)"
       ) else Nil,
-      List(s"  val _headers = mutable.Buffer[http4s.Header]($requiredHdrParams)"),
+      List(s"  var _hdrs = List[http4s.Header]($requiredHdrParams)"),
       encoder.map("  " + _),
       params.map("  " + _),
       entity.map("  " + _),
@@ -172,11 +172,15 @@ object Http4sClient {
         List("val _request = Request[F]("),
         List(s"  method = Method.${method.toString.toUpperCase},"),
         List(s"  uri = http4s.Uri("),
-        if (queryRequired) List("    query = http4s.Query(_query: _*),") else Nil,
-        List(s"""    path = s"/$path""""),
+        if (queryRequired) List("    query = http4s.Query.fromVector(_query),") else Nil,
+        List(
+          s"""path = s"/$path",""",
+          "scheme = scheme,",
+          "authority = authority"
+        ).map("    " + _),
         List("  ),"),
         bodyStr.map("  " + _),
-        List("  headers = http4s.Headers.of(_headers: _*)"),
+        List("  headers = http4s.Headers(_hdrs)"),
         List(")")
       ).flatten.map("  " + _),
       run.map("  " + _),
@@ -194,15 +198,17 @@ object Http4sClient {
       "import cats.effect.{ Resource, Sync }",
       "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
-      "import org.http4s.{ Method, Request, Response, Status }",
+      "import org.http4s.{ Method, Request, Response, Status, Uri }",
       "import org.http4s",
       "import shapeless.{ :+:, CNil, Coproduct }",
       "",
-      "import scala.collection.mutable",
-      "",
       s"import $pkg.Model._",
       "",
-      "class Http4sClient[F[_]](client: Client[F])(implicit F: Sync[F]) extends Api[F] {",
+      "class Http4sClient[F[_]](",
+      "  client: Client[F],",
+      "  scheme: Option[Uri.Scheme] = None,",
+      "  authority: Option[Uri.Authority] = None",
+      ")(implicit F: Sync[F]) extends Api[F] {",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>
           endpoint(segments, method, e).map("  " + _).mkString("\n")

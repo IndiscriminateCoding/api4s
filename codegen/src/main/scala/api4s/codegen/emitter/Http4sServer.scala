@@ -49,17 +49,17 @@ object Http4sServer {
         s"Helpers.mediaResponse[F](Status.$c)"
     }
 
-    val apiMapper = e.produces match {
+    def apiMapper(on: String) = e.produces match {
       case Produces.Untyped =>
         List(
-          "F.map(x.allocated) {",
+          s"F.map($on.allocated) {",
           "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
           "}"
         )
       case Produces.One(c, t @ None) =>
-        List(s"F.map(x)(_ => ${responseMapperStr(c, t)})")
+        List(s"F.map($on)(_ => ${responseMapperStr(c, t)})")
       case Produces.One(c, t @ Some(_)) =>
-        List(s"F.map(x)(${responseMapperStr(c, t)})")
+        List(s"F.map($on)(${responseMapperStr(c, t)})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
           case ((c, t @ None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
@@ -67,21 +67,21 @@ object Http4sServer {
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
         } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
-          List("F.map(x) {"),
+          List(s"F.map($on) {"),
           mapper.map("  " + _),
           List("}")
         ).flatten
     }
 
     val apiValidated =
-      if (e.orderedParameters.isEmpty) apiMapper
+      if (e.orderedParameters.isEmpty) apiMapper(s"api.${e.name.get}")
       else
         List(
           List("_validatedMapN("),
           params.map(p => s"  $p,"),
           List(s"  api.${e.name.get}"),
           List(").fold[F[Response[F]]](e => F.raiseError(Errors(e)), x =>"),
-          apiMapper.map("  " + _),
+          apiMapper("x").map("  " + _),
           List(")")
         ).flatten
 
@@ -94,11 +94,10 @@ object Http4sServer {
           List(s")(F, Helpers.circeEntityDecoder[F, ${typeStr(t)}])")
         ).flatten
       case Consumes.FormData(_) =>
-        val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"request.decodeValidated$opt[http4s.UrlForm](_formData =>"),
+          List(s"request.decode[http4s.UrlForm](_formData =>"),
           apiValidated.map("  " + _),
-          List(s")(F, http4s.UrlForm.entityDecoder[F]")
+          List(s")(F, http4s.UrlForm.entityDecoder[F])")
         ).flatten
       case Consumes.Entity(_, _) => apiValidated
       case Consumes.Empty => apiValidated
