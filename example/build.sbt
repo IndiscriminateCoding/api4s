@@ -1,6 +1,6 @@
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := "2.13.0"
-ThisBuild / version := "0.1.0"
+ThisBuild / version := "0.1.1"
 val http4sVersion = "0.21.0-M4"
 
 lazy val example = (project in file("."))
