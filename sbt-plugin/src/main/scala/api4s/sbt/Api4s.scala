@@ -7,6 +7,7 @@ import sbt.Keys._
 import sbt._
 
 import scala.collection.mutable
+import scala.util.control.NonFatal
 
 object Api4s extends AutoPlugin {
   case class Src(
@@ -40,6 +41,10 @@ object Api4s extends AutoPlugin {
   }
   import autoImport._
 
+  override lazy val globalSettings: Seq[Def.Setting[Seq[Src]]] = Seq(
+    api4sSources := Nil
+  )
+
   override lazy val projectSettings: Seq[Def.Setting[_]] = super.projectSettings ++ Seq(
     sourceGenerators in Compile += Def.task {
       def parsePkg(s: String): File =
@@ -49,6 +54,9 @@ object Api4s extends AutoPlugin {
         val src = scala.io.Source.fromFile(file)
         val api = try {
           f(Stages(swagger.Root(src.mkString).api))
+        } catch {
+          case NonFatal(e) =>
+            throw new Exception(s"Failed to compile $file", e)
         } finally {
           src.close()
         }

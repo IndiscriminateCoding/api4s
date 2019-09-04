@@ -1,6 +1,6 @@
 lazy val scalaVersions = List("2.12.9", "2.13.0")
 
-ThisBuild / version := "0.1.0"
+ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := scalaVersions.head
 
@@ -24,7 +24,9 @@ lazy val codegen = (project in file("codegen"))
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % http4sVersion,
       "io.circe" %% "circe-yaml" % "0.11.0-M1",
-      "io.circe" %% "circe-generic" % circeVersion
+      "io.circe" %% "circe-generic" % circeVersion,
+
+      "org.scalatest" %% "scalatest" % "3.0.8" % "test"
     )
   )
 

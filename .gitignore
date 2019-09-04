@@ -9,6 +9,9 @@
 /example/project/project
 /example/project/target
 /example/target
+/tests/project/project
+/tests/project/target
+/tests/target
 
 /codegen/src/main/scala/api4s/codegen/Main.scala
 /core/src/test

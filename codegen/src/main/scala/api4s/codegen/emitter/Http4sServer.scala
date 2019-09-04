@@ -142,6 +142,7 @@ object Http4sServer {
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.effect.{ Resource, Sync }",
+        "import io.circe.Json",
         "import org.http4s.{ Method, Request, Response, Status }",
         "import org.http4s",
         "import shapeless.{ Inl, Inr }",

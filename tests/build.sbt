@@ -1,0 +1,19 @@
+ThisBuild / version := "0.0.0"
+ThisBuild / organization := "com.github.IndiscriminateCoding"
+ThisBuild / scalaVersion := "2.12.9"
+
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+
+lazy val http4sVersion = "0.21.0-M4"
+
+lazy val tests = (project in file("."))
+  .enablePlugins(Api4s)
+  .settings(
+    libraryDependencies ++= Seq(
+      organization.value %% "api4s-core" % "0.1.0-SNAPSHOT",
+      "org.http4s" %% "http4s-client" % http4sVersion
+    ),
+    api4sSources := CodegenTests.download((sourceManaged in Compile).value) map { case (n, f) =>
+      Api4s.Src(f, n)
+    }
+  )

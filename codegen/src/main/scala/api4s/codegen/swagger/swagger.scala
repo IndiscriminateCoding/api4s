@@ -280,7 +280,7 @@ case class Parameter(
     case _ if `type`.contains("array") => Type.TArr(Type.TJson)
     case _ if `type`.contains("file") => Type.TMedia
     case _ if schema.nonEmpty => schema.get.getType
-    case _ => throw new IllegalArgumentException(s"incorrect parameter: $this ")
+    case _ => throw new IllegalArgumentException(s"incorrect parameter: $this")
   }
 
   def param: Param = Param(name.get, getType, required.getOrElse(false))
@@ -340,6 +340,6 @@ case class Schema(
     case _ if `type`.contains("object") && properties.isEmpty && additionalProperties.isEmpty =>
       Type.TMap(Type.TJson)
     case _ if `type`.isEmpty => Type.TJson
-    case _ => throw new IllegalArgumentException(s"incorrect schema: $this ")
+    case _ => throw new IllegalArgumentException(s"incorrect schema: $this")
   }
 }
