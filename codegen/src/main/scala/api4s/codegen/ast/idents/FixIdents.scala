@@ -35,9 +35,13 @@ object FixIdents {
     val opNames = new Renamer("operation", true)
     val endpoints = api.endpoints map { case (segments, methods) =>
       val snames = new Renamer("path", true)
-      val nsegments = segments.map {
+      def nsimple(s: Simple): Simple = s match {
         case Argument(n) => Argument(snames.fix(n))
         case s => s
+      }
+      val nsegments = segments.map {
+        case s: Simple => nsimple(s)
+        case Mixed(ps) => Mixed(ps.map(nsimple))
       }
       val nmethods = methods mapOnValues { ep =>
         val paramNames = new Renamer("param", true, snames.currentCtx)

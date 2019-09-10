@@ -45,14 +45,18 @@ case class Root(
   def endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]] =
     resolvedPaths
       .map { case (path, item) =>
-        var params: Set[String] = Set()
-        val segments = path.split("/").toList.filter(_.nonEmpty).map {
-          case s if s.startsWith("{") =>
-            val name = s.substring(1, s.length - 1)
-            params = params + name
-            Segment.Argument(name)
-          case s => Segment.Static(s)
+        val segments = PathParser(path)
+
+        def partName(s: Segment.Simple): List[String] = s match {
+          case Segment.Static(_) => Nil
+          case Segment.Argument(n) => List(n)
         }
+
+        val params = segments.flatMap {
+          case s: Segment.Simple => partName(s)
+          case Segment.Mixed(ps) => ps flatMap partName
+        }.toSet
+
         val endpoints = item.endpoints
         endpoints.values foreach { e =>
           val pathParams = e.parameters.filter(_._1 == Path).map(_._2).toSet

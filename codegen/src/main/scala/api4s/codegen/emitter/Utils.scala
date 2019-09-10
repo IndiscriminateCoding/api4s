@@ -2,6 +2,7 @@ package api4s.codegen.emitter
 
 import api4s.codegen.ast.Type._
 import api4s.codegen.ast.{ Produces, Type }
+import api4s.codegen.utils.Registry.registry
 
 object Utils {
   def producesPlain(p: Produces): String = p match {
@@ -9,7 +10,7 @@ object Utils {
     case Produces.One(_, content) => typeStr(content.map(_._2))
     case Produces.Many(rs) => s"${
       rs.map {
-        case ("NoContent", _) => "NoContent"
+        case (s, _) if registry.values.exists { case (n, r) => !r && n == s } => s
         case (s, t) => s"$s[${typeStr(t.map(_._2))}]"
       }.mkString(" :+: ")
     } :+: CNil"

@@ -110,6 +110,8 @@ object Http4sServer {
     val items = s.map {
       case Segment.Static(p) => s""""$p""""
       case Segment.Argument(p) => p
+      case Segment.Mixed(_) =>
+        throw new Exception("Mixed segments are not supported in http4s-server")
     }.mkString(", ")
 
     s"case List($items) =>"

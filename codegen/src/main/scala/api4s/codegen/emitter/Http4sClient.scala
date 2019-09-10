@@ -53,7 +53,7 @@ object Http4sClient {
       else res
       }.mkString(", ")
 
-    val path = segments.map {
+    def segmentPath(parts: List[Segment.Simple]): String = parts.map {
       case Segment.Static(s) => s
       case Segment.Argument(p) =>
         val needEncode = e.parameters.exists {
@@ -62,6 +62,11 @@ object Http4sClient {
         }
         if (needEncode) s"$${Helpers pathEncode $p}"
         else s"$$$p"
+    }.mkString
+
+    val path = segments.map {
+      case s: Segment.Simple => segmentPath(List(s))
+      case Segment.Mixed(ps) => segmentPath(ps)
     }.mkString("/")
 
     val encoder = e.requestBody.consumes match {

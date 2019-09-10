@@ -47,8 +47,11 @@ object Method {
 
 sealed trait Segment
 object Segment {
-  case class Static(value: String) extends Segment
-  case class Argument(name: String) extends Segment
+  sealed trait Simple extends Segment
+  case class Static(value: String) extends Simple
+  case class Argument(name: String) extends Simple
+
+  case class Mixed(parts: List[Simple]) extends Segment
 }
 
 case class Parameter(name: String, t: Type, required: Boolean)
