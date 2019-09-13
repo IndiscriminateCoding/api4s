@@ -1,4 +1,4 @@
-lazy val scalaVersions = List("2.12.9", "2.13.0")
+lazy val scalaVersions = List("2.12.10", "2.13.0")
 
 ThisBuild / version := "0.1.2-SNAPSHOT"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
