@@ -20,7 +20,7 @@ object Http4sClient {
 
     val params = e.parameters flatMap {
       case (Parameter.Query(rn), Parameter(n, TArr(t), _)) =>
-        List(s"""$n foreach (x => _query = _query :+ ("$rn", Some(x${addToString(t)})))""")
+        List(s"""$n foreach (x => _query = _query :+ ("$rn" -> Some(x${addToString(t)})))""")
       case (Parameter.Query(rn), Parameter(n, t, false)) =>
         List(s"""$n foreach (x => _query = _query :+ ("$rn" -> Some(x${addToString(t)})))""")
       case (Parameter.Hdr(rn), Parameter(n, t, false)) =>
