@@ -11,7 +11,7 @@ object Reserved {
   )
 
   val reservedIdentifiers: Set[String] = Set(
-    "entity", "request", "api", "client", "http4s", "scheme", "authority"
+    "entity", "request", "api", "client", "http4s", "scheme", "authority", "onError"
   )
 
   val importedSymbols: Set[String] = Set(

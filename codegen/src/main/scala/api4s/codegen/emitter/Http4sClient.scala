@@ -153,7 +153,7 @@ object Http4sClient {
       List(
         List(s"client.fetch[${producesPlain(e.produces)}](_request)(r => r.status match {"),
         rs.map { case (s, t) => "  " + one(s, t) },
-        List("  case s => F.raiseError(UnexpectedStatus(s))"),
+        List("  case _ => _onError(r)"),
         List("})")
       ).flatten
     }
@@ -212,8 +212,13 @@ object Http4sClient {
       "class Http4sClient[F[_]](",
       "  client: Client[F],",
       "  scheme: Option[Uri.Scheme] = None,",
-      "  authority: Option[Uri.Authority] = None",
+      "  authority: Option[Uri.Authority] = None,",
+      "  onError: Option[Response[F] => F[Throwable]] = None",
       ")(implicit F: Sync[F]) extends Api[F] {",
+      "  private[this] def _onError[A](r: Response[F]) = onError.fold[F[A]](",
+      "    F.raiseError(UnexpectedStatus(r.status))",
+      "  )(f => F.flatMap(f(r))(F.raiseError))",
+      "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>
           endpoint(segments, method, e).map("  " + _).mkString("\n")
