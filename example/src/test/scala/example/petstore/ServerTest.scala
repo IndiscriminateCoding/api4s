@@ -4,7 +4,6 @@ import api4s.outputs.{ Created, Ok }
 import cats.effect.{ ContextShift, IO }
 import example.petstore.Model.NewPet
 import org.http4s.Uri
-import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.scalatest.{ FlatSpec, Matchers }
 import shapeless._

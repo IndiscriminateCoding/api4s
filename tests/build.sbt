@@ -1,6 +1,6 @@
 ThisBuild / version := "0.0.0"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
-ThisBuild / scalaVersion := "2.13.0"
+ThisBuild / scalaVersion := "2.13.1"
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
   "-explaintypes",
@@ -19,7 +19,7 @@ ThisBuild / scalacOptions ++= Seq(
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
-lazy val http4sVersion = "0.21.0-M4"
+lazy val http4sVersion = "0.21.0-M5"
 
 lazy val tests = (project in file("."))
   .enablePlugins(Api4s)
