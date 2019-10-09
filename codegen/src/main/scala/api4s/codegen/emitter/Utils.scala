@@ -42,7 +42,7 @@ object Utils {
     case TBool => "Boolean"
     case TMedia => "Media[F]"
     case TObj(flds) =>
-      val types = flds.values.map(_.t)
+      val types = flds.values.map(_.t).toSet
       val fldType =
         if (types.size == 1) typeStr(types.head)
         else "Json"
