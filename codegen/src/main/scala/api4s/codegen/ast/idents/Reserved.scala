@@ -19,8 +19,8 @@ object Reserved {
     "Throwable",
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil", "Resource",
-    "Coproduct", "UnexpectedStatus", "Method", "Applicative", "EntityEncoder", "EntityDecoder",
-    "Inl", "Inr", "Uri",
+    "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl", "Inr",
+    "Uri",
 
     "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors",
 
