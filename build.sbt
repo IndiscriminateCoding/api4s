@@ -6,7 +6,7 @@ ThisBuild / scalaVersion := scalaVersions.head
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
-lazy val circeVersion = "0.12.1"
+lazy val circeVersion = "0.12.2"
 lazy val http4sVersion = "0.21.0-M5"
 
 lazy val api4s = (project in file("."))
