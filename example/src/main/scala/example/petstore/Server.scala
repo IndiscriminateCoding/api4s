@@ -5,7 +5,7 @@ import cats.effect.IO
 import example.petstore.Model._
 import shapeless.{ :+:, CNil, Inl, Inr }
 
-class Server(storage: Storage[IO]) extends Api[IO] {
+class Server(storage: Storage[IO]) extends Api[IO, IO] {
   def findPets(tags: List[String], limit: Option[Int]): IO[List[Pet]] =
     storage.findByTags(tags, limit)
 

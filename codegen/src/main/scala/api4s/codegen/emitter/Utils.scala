@@ -5,8 +5,12 @@ import api4s.codegen.ast.{ Produces, Type }
 import api4s.codegen.utils.Registry.registry
 
 object Utils {
+  object default extends Utils()
+}
+
+class Utils(F: String = "F", S: String = "S") {
   def producesPlain(p: Produces): String = p match {
-    case Produces.Untyped => "Resource[F, Response[F]]"
+    case Produces.Untyped => s"Resource[$F, Response[$S]]"
     case Produces.One(_, content) => typeStr(content.map(_._2))
     case Produces.Many(rs) => s"${
       rs.map {
@@ -18,7 +22,7 @@ object Utils {
 
   def producesLifted(p: Produces): String = p match {
     case Produces.Untyped => producesPlain(p)
-    case _ => s"F[${producesPlain(p)}]"
+    case _ => s"$F[${producesPlain(p)}]"
   }
 
   def shapelessPat(i: Int, v: String): String =
@@ -40,7 +44,7 @@ object Utils {
     case TDouble => "Double"
     case TString => "String"
     case TBool => "Boolean"
-    case TMedia => "Media[F]"
+    case TMedia => s"Media[$S]"
     case TObj(flds) =>
       val types = flds.values.map(_.t).toSet
       val fldType =

@@ -20,7 +20,7 @@ object Reserved {
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil", "Resource",
     "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl", "Inr",
-    "Uri",
+    "Uri", "Bracket", "Applicative", "Defer",
 
     "F", "S", "RoutingErrorAlgebra", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors",
 

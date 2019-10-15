@@ -1,13 +1,15 @@
 package api4s.codegen.emitter
 
 import api4s.codegen.ast._
-import api4s.codegen.emitter.Utils._
 import org.http4s.util.StringWriter
 import org.http4s.{ MediaRange, MediaType }
 
 import scala.collection.immutable.ListMap
 
 object Http4sServer {
+  object utils extends Utils(S = "F")
+  import utils._
+
   private def methodMatcher(m: Method, e: Endpoint): List[String] = {
     import Type._
 
@@ -151,7 +153,7 @@ object Http4sServer {
         "",
         s"import $pkg.Model._",
         "",
-        "class Http4sServer[F[_]](api: Api[F])(implicit F: Sync[F]) extends Endpoint[F] {",
+        "class Http4sServer[F[_]](api: Api[F, F])(implicit F: Sync[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
         "  ): F[Response[F]] = request.pathSegments match {"

@@ -2,7 +2,7 @@ package api4s.codegen.emitter
 
 import api4s.codegen.ast.Type._
 import api4s.codegen.ast._
-import api4s.codegen.emitter.Utils._
+import api4s.codegen.emitter.Utils.default._
 
 object CirceModel {
   def apply(pkg: String, ts: Map[String, Type]): String = {

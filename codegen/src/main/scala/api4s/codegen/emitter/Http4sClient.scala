@@ -2,10 +2,12 @@ package api4s.codegen.emitter
 
 import api4s.codegen.ast.Type._
 import api4s.codegen.ast._
-import api4s.codegen.emitter.Utils._
 import org.http4s.{ MediaRange, MediaType }
 
 object Http4sClient {
+  object clientServerApi extends ClientServerApi(S = "F")
+  import clientServerApi.utils._
+
   private def endpoint(segments: List[Segment], method: Method, e: Endpoint): List[String] = {
     def addToString(t: Type): String = t match {
       case TString => ""
@@ -165,7 +167,7 @@ object Http4sClient {
     }
 
     List(
-      List(ClientServerApi(e) + " = {"),
+      List(clientServerApi(e) + " = {"),
       if (queryRequired) List(
         s"  var _query = Vector[(String, Option[String])]($requiredQueryParams)"
       ) else Nil,
@@ -214,7 +216,7 @@ object Http4sClient {
       "  scheme: Option[Uri.Scheme] = None,",
       "  authority: Option[Uri.Authority] = None,",
       "  onError: Option[Response[F] => F[Throwable]] = None",
-      ")(implicit F: Sync[F]) extends Api[F] {",
+      ")(implicit F: Sync[F]) extends Api[F, F] {",
       "  private[this] def _onError[A](r: Response[F]) = onError.fold[F[A]](",
       "    F.raiseError(UnexpectedStatus(r.status))",
       "  )(f => F.flatMap(f(r))(F.raiseError))",
