@@ -130,7 +130,7 @@ object PathItem {
         case Some(ps) => ps.as[List[Parameter]].map(Some(_))
       }
       ops <- flds
-        .filterKeys(k => methodOfString.isDefinedAt(k.toLowerCase))
+        .filter { case (k, _) => methodOfString.isDefinedAt(k.toLowerCase) }
         .toList
         .traverse[Result, (Method, Operation)] { case (k, v) =>
           v.as[Operation].map(methodOfString(k) -> _)

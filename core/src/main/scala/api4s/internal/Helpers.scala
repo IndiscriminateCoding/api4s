@@ -12,9 +12,9 @@ import org.http4s.circe._
 import org.http4s.headers._
 
 object Helpers {
-  def pathEncode(s: String): String = PathCodecs.encode(s)
+  def pathEncode(s: String): String = Uri.pathEncode(s)
 
-  def pathDecode(s: String): String = PathCodecs.decode(s)
+  def pathDecode(s: String): String = Uri.decode(s)
 
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
     def pathSegments: List[String] = r.uri.path.split('/').filter(_.nonEmpty).toList

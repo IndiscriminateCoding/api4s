@@ -19,13 +19,13 @@ ThisBuild / scalacOptions ++= Seq(
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
-lazy val http4sVersion = "0.21.0-M5"
+lazy val http4sVersion = "0.21.0-M6"
 
 lazy val tests = (project in file("."))
   .enablePlugins(Api4s)
   .settings(
     libraryDependencies ++= Seq(
-      organization.value %% "api4s-core" % "0.2.0-SNAPSHOT",
+      organization.value %% "api4s-core" % "0.2.1-SNAPSHOT",
       "org.http4s" %% "http4s-client" % http4sVersion
     ),
     api4sSources := CodegenTests.download((sourceManaged in Compile).value) map { case (n, f, s) =>

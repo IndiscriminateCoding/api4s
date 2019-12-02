@@ -1,13 +1,13 @@
 lazy val scalaVersions = List("2.12.10", "2.13.1")
 
-ThisBuild / version := "0.2.0-SNAPSHOT"
+ThisBuild / version := "0.2.1-SNAPSHOT"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := scalaVersions.head
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
-lazy val circeVersion = "0.12.2"
-lazy val http4sVersion = "0.21.0-M5"
+lazy val circeVersion = "0.12.3"
+lazy val http4sVersion = "0.21.0-M6"
 
 lazy val api4s = (project in file("."))
   .aggregate(codegen, core, `sbt-plugin`)
@@ -23,7 +23,7 @@ lazy val codegen = (project in file("codegen"))
     name := "api4s-codegen",
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % http4sVersion,
-      "io.circe" %% "circe-yaml" % "0.11.0-M1",
+      "io.circe" %% "circe-yaml" % "0.12.0",
       "io.circe" %% "circe-generic" % circeVersion,
 
       "org.scalatest" %% "scalatest" % "3.0.8" % "test"
