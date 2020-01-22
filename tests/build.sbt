@@ -25,7 +25,7 @@ lazy val tests = (project in file("."))
   .enablePlugins(Api4s)
   .settings(
     libraryDependencies ++= Seq(
-      organization.value %% "api4s-core" % "0.2.1-SNAPSHOT",
+      organization.value %% "api4s-core" % "0.2.2-SNAPSHOT",
       "org.http4s" %% "http4s-client" % http4sVersion
     ),
     api4sSources := CodegenTests.download((sourceManaged in Compile).value) map { case (n, f, s) =>
