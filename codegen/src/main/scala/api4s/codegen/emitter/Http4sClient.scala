@@ -127,22 +127,22 @@ object Http4sClient {
     }
 
     def runOn(rs: List[(String, Option[(MediaType, Type)])]): List[String] = {
-      def decoder(mt: MediaType): Option[String] = () match {
+      def decoder(mt: MediaType, t: Type): Option[String] = t match {
         case _ if MediaType.application.json.satisfiedBy(mt) =>
           Some("Helpers.circeEntityDecoder")
-        case _ if MediaRange.`text/*`.satisfiedBy(mt) =>
+        case TString if MediaRange.`text/*`.satisfiedBy(mt) =>
           Some("http4s.EntityDecoder.text[F]")
         case _ => None
       }
 
       def one(s: String, t: Option[(MediaType, Type)]): String = t match {
-        case Some((mt, _)) => decoder(mt) match {
-          case None if rs.length == 1 => s"case Status.$s => F.pure(Media(r))"
+        case Some((mt, tp)) => decoder(mt, tp) match {
+          case None if rs.length == 1 => s"case Status.$s => F.pure[Media[F]](r)"
           case Some(d) if rs.length == 1 =>
             s"case Status.$s => r.as[${typeStr(t.map(_._2))}](F, $d)"
           case None =>
             val p = producesPlain(e.produces)
-            s"case Status.$s => F.pure(Coproduct[$p]($s(Media(r))))"
+            s"case Status.$s => F.pure(Coproduct[$p]($s[Media[F]](r)))"
           case Some(d) => List(
             s"case Status.$s => F.map(r.as[${typeStr(t.map(_._2))}](F, $d))",
             s"(x => Coproduct[${producesPlain(e.produces)}]($s(x)))"
@@ -199,13 +199,12 @@ object Http4sClient {
     List(
       s"package $pkg",
       "",
-      "import api4s.Media",
       "import api4s.internal.Helpers",
       "import api4s.outputs._",
       "import cats.effect.{ Resource, Sync }",
       "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
-      "import org.http4s.{ Method, Request, Response, Status, Uri }",
+      "import org.http4s.{ Media, Method, Request, Response, Status, Uri }",
       "import org.http4s",
       "import shapeless.{ :+:, CNil, Coproduct }",
       "",

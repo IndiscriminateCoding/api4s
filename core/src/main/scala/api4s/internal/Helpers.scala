@@ -1,6 +1,5 @@
 package api4s.internal
 
-import api4s.Media
 import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
 import cats.effect.Sync

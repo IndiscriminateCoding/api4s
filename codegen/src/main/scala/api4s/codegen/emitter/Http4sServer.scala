@@ -29,7 +29,7 @@ object Http4sServer {
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
         s"""Decode[$ts](request.uri.query, "$rn")"""
       case (Parameter.Body(_), Parameter(_, TMedia, _)) =>
-        "cats.data.Validated.Valid(Media(request))"
+        "cats.data.Validated.Valid[Media[F]](request)"
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
         s"""Decode[List[${primitiveStr(t)}]](_fromData, "$rn")"""
@@ -43,7 +43,7 @@ object Http4sServer {
       case None => s"Helpers.emptyResponse[F](Status.$c)"
       case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
         s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
-      case Some((mt, _)) if MediaRange.`text/*`.satisfiedBy(mt) =>
+      case Some((mt, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
@@ -139,7 +139,7 @@ object Http4sServer {
       List(
         s"package $pkg",
         "",
-        "import api4s.{ Decode, Endpoint, Errors, Media }",
+        "import api4s.{ Decode, Endpoint, Errors }",
         "import api4s.Endpoint.RoutingErrorAlgebra",
         "import api4s.internal.Helpers",
         "import api4s.internal.Helpers.RichRequest",
@@ -147,7 +147,7 @@ object Http4sServer {
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.effect.{ Resource, Sync }",
         "import io.circe.Json",
-        "import org.http4s.{ Method, Request, Response, Status }",
+        "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
         "import shapeless.{ Inl, Inr }",
         "",

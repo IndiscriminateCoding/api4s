@@ -14,12 +14,11 @@ object ClientServerApi {
     List(
       s"package $pkg",
       "",
-      "import api4s.Media",
       "import api4s.outputs._",
       "import cats.{ ~>, Applicative, Defer }",
       "import cats.effect.{ Bracket, Resource }",
       "import io.circe.Json",
-      "import org.http4s.Response",
+      "import org.http4s.{ Media, Response }",
       "import shapeless.{ :+:, CNil }",
       "",
       s"import $pkg.Model._",
@@ -73,7 +72,8 @@ class ClientServerApi(F: String = "F", S: String = "S") {
   }
 
   private def convertParamDefault(p: Parameter): String = p match {
-    case Parameter(n, t @ TMedia, true) => s"$n: ${typeStr(t)} = Media()"
+    case Parameter(n, t @ TMedia, true) =>
+      s"$n: ${typeStr(t)} = Media(http4s.EmptyBody, http4s.Headers.empty)"
     case Parameter(n, t @ TArr(_), true) => s"$n: ${typeStr(t)} = Nil"
     case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
     case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"
