@@ -19,7 +19,7 @@ ThisBuild / scalacOptions ++= Seq(
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
-lazy val http4sVersion = "0.21.0-M6"
+lazy val http4sVersion = "0.21.0-RC1"
 
 lazy val tests = (project in file("."))
   .enablePlugins(Api4s)
