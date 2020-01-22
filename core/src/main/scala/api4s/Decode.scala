@@ -1,6 +1,5 @@
 package api4s
 
-import api4s.internal.Helpers
 import cats.data.Validated._
 import cats.data._
 import io.circe.Json
@@ -46,7 +45,7 @@ object Decode {
     D.map(_.headOption)
 
   implicit val decodeStringFromPath: Decode[String, String] =
-    decodePathFromCast(Helpers.pathDecode, "String")
+    decodePathFromCast(Uri.decode(_), "String")
   implicit val decodeListStringFromUrlForm: Decode[UrlForm, List[String]] =
     decodeListFromUrlForm(identity, "String")
   implicit val decodeListStringFromQuery: Decode[Query, List[String]] =

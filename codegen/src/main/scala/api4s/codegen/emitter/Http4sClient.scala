@@ -62,7 +62,7 @@ object Http4sClient {
           case (Parameter.Path, Parameter(n, TString, _)) if n == p => true
           case _ => false
         }
-        if (needEncode) s"$${Helpers pathEncode $p}"
+        if (needEncode) s"$${Uri.pathEncode($p)}"
         else s"$$$p"
     }.mkString
 
