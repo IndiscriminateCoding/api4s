@@ -1,0 +1,25 @@
+language: scala
+dist: xenial
+jdk:
+- openjdk11
+
+jobs:
+  include:
+  - script: sbt ++2.12.10 test
+    name: Test
+    scala: 2.12.10
+  - script: sbt +publishLocal && cd example && sbt test
+    name: Example test
+    scala: 2.13.1
+  - script: sbt +publishLocal && cd tests && sbt compile
+    name: Specification test
+    scala: 2.13.1
+
+cache:
+  directories:
+  - "$HOME/.cache"
+  - "$HOME/.ivy2/cache"
+  - "$HOME/.sbt/boot"
+
+before_cache:
+- cleanup_cache

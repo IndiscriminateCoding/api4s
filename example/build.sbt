@@ -1,7 +1,6 @@
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := "2.13.1"
-ThisBuild / version := "0.2.2"
-val http4sVersion = "0.21.0-RC1"
+ThisBuild / version := Versions.api4s
 
 lazy val example = (project in file("."))
   .enablePlugins(Api4s)
@@ -16,12 +15,12 @@ lazy val example = (project in file("."))
     name := "example",
     libraryDependencies ++= Seq(
       organization.value %% "api4s-core" % version.value,
-      "org.http4s" %% "http4s-blaze-server" % http4sVersion,
-      "org.http4s" %% "http4s-client" % http4sVersion,
+      "org.http4s" %% "http4s-blaze-server" % Versions.http4s,
+      "org.http4s" %% "http4s-client" % Versions.http4s,
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
 
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion % "test",
+      "org.http4s" %% "http4s-blaze-client" % Versions.http4s % "test",
       "org.scalatest" %% "scalatest" % "3.0.8" % "test"
     )
   )
