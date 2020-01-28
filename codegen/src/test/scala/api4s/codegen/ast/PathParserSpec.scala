@@ -1,9 +1,10 @@
 package api4s.codegen.ast
 
 import api4s.codegen.ast.Segment._
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class PathParserSpec extends FlatSpec with Matchers {
+class PathParserSpec extends AnyFlatSpec with Matchers {
   it should "parse non-mixed paths" in {
     PathParser("/a/{b}/c") shouldBe List(Static("a"), Argument("b"), Static("c"))
   }
