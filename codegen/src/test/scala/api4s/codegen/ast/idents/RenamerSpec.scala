@@ -1,8 +1,9 @@
 package api4s.codegen.ast.idents
 
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class RenamerSpec extends FlatSpec with Matchers {
+class RenamerSpec extends AnyFlatSpec with Matchers {
   it should "rename empty identifiers" in {
     val p = "op"
     val r = new Renamer(p, true)
