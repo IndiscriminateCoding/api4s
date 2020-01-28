@@ -6,7 +6,7 @@ object CodegenTests {
   private val specs = List(
     ("twitter", "https://raw.githubusercontent.com/APIs-guru/openapi-directory/master/APIs/twitter.com/legacy/1.1/swagger.yaml", false),
     ("twilio", "https://pastebin.com/raw/FxB8BSF9", false),
-    ("ringcentral", "https://netstorage.ringcentral.com/dpw/api-reference/specs/rc-platform.yml", true),
+    //("ringcentral", "https://netstorage.ringcentral.com/dpw/api-reference/specs/rc-platform.yml", true),
     ("instagram", "https://pastebin.com/raw/SDTguj2M", true)
   )
 
