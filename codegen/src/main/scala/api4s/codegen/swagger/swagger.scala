@@ -319,30 +319,24 @@ case class Schema(
     case _ if `type`.contains("array") && items.nonEmpty => Type.TArr(items.get.getType)
     case _ if `type`.contains("array") => Type.TArr(Type.TJson)
     case _ if `type`.contains("file") => Type.TMedia
-    case _ if `type`.contains("object")
-      && additionalProperties.isEmpty
-      && allOf.isEmpty
-      && properties.nonEmpty =>
-      val props = properties.get
-        .map { case (k, v) =>
-          k -> Type.Field(v.getType, k, required.exists(_.contains(k)))
-        }
-      Type.TObj(props)
-    case _ if `type`.contains("object")
-      && additionalProperties.nonEmpty
-      && !properties.exists(_.nonEmpty) => Type.TMap(additionalProperties.get.getType)
-    case _ if `type`.contains("object") && allOf.nonEmpty && discriminator.isEmpty =>
-      val types = allOf.get.map(_.getType)
-      val fields = types.foldLeft[ListMap[String, Type.Field]](ListMap.empty) {
-        case (a, Type.TObj(flds)) =>
-          val res = a ++ flds
-          require(a.size == res.size + flds.size, s"Overlapping fields in allOf: $types")
-          res
-        case _ => throw new IllegalArgumentException(s"using allOf on non-object types: $this ")
+    case _ if `type`.contains("object") =>
+      val _allOf = allOf.getOrElse(Nil)
+      val _props = properties.getOrElse(ListMap.empty).toList
+      (_allOf, discriminator, _props, additionalProperties) match {
+        case (_, Some(_), _, _) => Type.TMap(Type.TJson)
+        case (Nil, None, _, None) =>
+          val fields = _props
+            .map { case (k, v) =>
+              k -> Type.Field(v.getType, k, required.exists(_.contains(k)))
+            }
+          Type.TObj(ListMap(fields: _*))
+        case (Nil, None, Nil, Some(s)) => Type.TMap(s.getType)
+        case (Nil, None, flds, Some(s)) =>
+          val t = s.getType
+          if (flds.forall(_._2.getType == t)) Type.TMap(t)
+          else Type.TMap(Type.TJson)
+        case (_ :: _, _, _, _) => Type.TMap(Type.TJson)
       }
-      Type.TObj(fields)
-    case _ if `type`.contains("object") && properties.isEmpty && additionalProperties.isEmpty =>
-      Type.TMap(Type.TJson)
     case _ if `type`.isEmpty => Type.TJson
     case _ => throw new IllegalArgumentException(s"incorrect schema: $this")
   }
