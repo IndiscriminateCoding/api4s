@@ -19,6 +19,7 @@ object ClientServerApi {
       "import cats.effect.{ Bracket, Resource }",
       "import io.circe.Json",
       "import org.http4s.{ Media, Response }",
+      "import org.http4s",
       "import shapeless.{ :+:, CNil }",
       "",
       s"import $pkg.Model._",

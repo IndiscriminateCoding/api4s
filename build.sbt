@@ -6,7 +6,8 @@ ThisBuild / version := Versions.api4s
 ThisBuild / organization := "com.github.IndiscriminateCoding"
 ThisBuild / scalaVersion := scalaVersions.head
 
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+ThisBuild / libraryDependencies +=
+  compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
 lazy val api4s = (project in file("."))
   .aggregate(codegen, core, `sbt-plugin`)
