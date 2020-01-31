@@ -1,3 +1,5 @@
+Global / useSuperShell := false
+
 lazy val scalaVersions = List("2.12.10", "2.13.1")
 
 ThisBuild / version := Versions.api4s
