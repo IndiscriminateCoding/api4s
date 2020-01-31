@@ -120,20 +120,24 @@ object Http4sServer {
   }
 
   def apply(pkg: String, endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]]): String = {
-    val endpointList = endpoints.flatMap { case (segment, methods) =>
-      val allowed = methods.keys.map(m => s"Method.${m.toString.toUpperCase}").mkString(", ")
-      val methodList = methods
-        .flatMap { case (m, e) => methodMatcher(m, e) }
-        .toList :+ s"case _ => RoutingErrorAlgebra.methodNotAllowed($allowed)"
+    val endpointList = endpoints.toList
+      .sortBy {
+        case (segments, _) => -segments.count(_.isInstanceOf[Segment.Static])
+      }
+      .flatMap { case (segment, methods) =>
+        val allowed = methods.keys.map(m => s"Method.${m.toString.toUpperCase}").mkString(", ")
+        val methodList = methods
+          .flatMap { case (m, e) => methodMatcher(m, e) }
+          .toList :+ s"case _ => RoutingErrorAlgebra.methodNotAllowed($allowed)"
 
-      List(
-        List(segmentsMatcher(segment)),
-        List(s"  def _apply = request.method match {"),
-        methodList.map("    " + _),
-        List("  }"),
-        List("  _apply")
-      ).flatten
-    }.toList
+        List(
+          List(segmentsMatcher(segment)),
+          List(s"  def _apply = request.method match {"),
+          methodList.map("    " + _),
+          List("  }"),
+          List("  _apply")
+        ).flatten
+      }
 
     List(
       List(
