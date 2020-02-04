@@ -36,12 +36,12 @@ object Helpers {
 
   private val printer = Printer.spaces2.copy(dropNullValues = true)
 
-  def circeEntityEncoder[F[_] : Applicative, A: Encoder]: EntityEncoder[F, A] =
+  def circeEntityEncoder[F[_], A: Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
 
   def circeEntityDecoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
-  def jsonResponse[F[_] : Applicative, A: Encoder](status: Status)(a: A): Response[F] = {
+  def jsonResponse[F[_], A: Encoder](status: Status)(a: A): Response[F] = {
     val encoder = circeEntityEncoder[F, A]
     val entity = encoder.toEntity(a)
 
