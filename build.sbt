@@ -23,7 +23,7 @@ lazy val codegen = (project in file("codegen"))
     name := "api4s-codegen",
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % Versions.http4s,
-      "io.circe" %% "circe-yaml" % "0.13.0",
+      "io.circe" %% "circe-yaml" % "0.12.0",
       "io.circe" %% "circe-generic" % Versions.circe,
 
       "org.scalatest" %% "scalatest" % "3.1.1" % "test"
