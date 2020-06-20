@@ -5,12 +5,13 @@ import cats.effect.{ ContextShift, IO }
 import example.petstore.Model.NewPet
 import org.http4s.Uri
 import org.http4s.client.blaze.BlazeClientBuilder
-import org.scalatest.{ FlatSpec, Matchers }
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import shapeless._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ServerTest extends FlatSpec with Matchers {
+class ServerTest extends AnyFlatSpec with Matchers {
   implicit val contextShift: ContextShift[IO] = IO.contextShift(global)
 
   // Let's start our server just from Main class
