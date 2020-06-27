@@ -10,7 +10,6 @@ ThisBuild / scalacOptions ++= Seq(
   "-Xcheckinit",
   "-Xlint:adapted-args",
   "-Xlint:infer-any",
-  "-Xlint:nullary-override",
   "-Xlint:nullary-unit",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",

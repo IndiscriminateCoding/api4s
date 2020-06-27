@@ -153,7 +153,7 @@ object Http4sClient {
       }
 
       List(
-        List(s"client.fetch[${producesPlain(e.produces)}](_request)(r => r.status match {"),
+        List(s"client.run(_request).use[F, ${producesPlain(e.produces)}](r => r.status match {"),
         rs.map { case (s, t) => "  " + one(s, t) },
         List("  case _ => _onError(r)"),
         List("})")
