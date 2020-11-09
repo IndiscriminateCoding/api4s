@@ -26,7 +26,7 @@ lazy val codegen = (project in file("codegen"))
       "io.circe" %% "circe-yaml" % "0.13.1",
       "io.circe" %% "circe-generic" % Versions.circe,
 
-      "org.scalatest" %% "scalatest" % "3.2.2" % "test"
+      "org.scalatest" %% "scalatest" % "3.2.3" % "test"
     )
   )
 
