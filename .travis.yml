@@ -7,7 +7,7 @@ jobs:
   include:
   - script: sbt ++2.12.10 test
     name: Test
-    scala: 2.12.10
+    scala: 2.12.13
   - script: sbt +publishLocal && cd example && sbt test
     name: Example test
     scala: 2.13.1
