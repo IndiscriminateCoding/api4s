@@ -116,7 +116,7 @@ object Http4sServer {
         throw new Exception("Mixed segments are not supported in http4s-server")
     }.mkString(", ")
 
-    s"case List($items) =>"
+    s"case Vector($items) =>"
   }
 
   def apply(pkg: String, endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]]): String = {
@@ -149,7 +149,7 @@ object Http4sServer {
         "import api4s.internal.Helpers.RichRequest",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
-        "import cats.effect.{ Resource, Sync }",
+        "import cats.effect.{ Async, Resource }",
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
@@ -157,7 +157,7 @@ object Http4sServer {
         "",
         s"import $pkg.Model._",
         "",
-        "class Http4sServer[F[_]](api: Api[F, F])(implicit F: Sync[F]) extends Endpoint[F] {",
+        "class Http4sServer[F[_]](api: Api[F, F])(implicit F: Async[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
         "  ): F[Response[F]] = request.pathSegments match {"

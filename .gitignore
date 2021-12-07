@@ -15,3 +15,7 @@
 
 /codegen/src/main/scala/api4s/codegen/Main.scala
 /core/src/test
+
+.bloop
+.bsp
+.metals

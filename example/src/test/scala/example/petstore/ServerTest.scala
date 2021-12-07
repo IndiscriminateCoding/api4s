@@ -1,23 +1,20 @@
 package example.petstore
 
 import api4s.outputs.{ Created, Ok }
-import cats.effect.{ ContextShift, IO }
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import example.petstore.Model.NewPet
 import org.http4s.Uri
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import shapeless._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 class ServerTest extends AnyFlatSpec with Matchers {
-  implicit val contextShift: ContextShift[IO] = IO.contextShift(global)
-
   // Let's start our server just from Main class
   Main.run(Nil).start.unsafeRunSync()
 
-  private[this] val blazeClient = BlazeClientBuilder[IO](global)
+  private[this] val blazeClient = BlazeClientBuilder[IO]
     .resource
     .allocated
     .unsafeRunSync()

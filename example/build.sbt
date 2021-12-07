@@ -1,5 +1,5 @@
 ThisBuild / organization := "com.github.IndiscriminateCoding"
-ThisBuild / scalaVersion := "2.13.3"
+ThisBuild / scalaVersion := "2.13.7"
 ThisBuild / version := Versions.api4s
 
 lazy val example = (project in file("."))
@@ -17,10 +17,10 @@ lazy val example = (project in file("."))
       organization.value %% "api4s-core" % version.value,
       "org.http4s" %% "http4s-blaze-server" % Versions.http4s,
       "org.http4s" %% "http4s-client" % Versions.http4s,
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
+      "ch.qos.logback" % "logback-classic" % "1.2.7",
 
       "org.http4s" %% "http4s-blaze-client" % Versions.http4s % "test",
-      "org.scalatest" %% "scalatest" % "3.2.7" % "test"
+      "org.scalatest" %% "scalatest" % "3.2.10" % "test"
     )
   )

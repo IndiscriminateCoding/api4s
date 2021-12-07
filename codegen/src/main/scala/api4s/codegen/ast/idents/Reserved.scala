@@ -16,7 +16,7 @@ object Reserved {
 
   val importedSymbols: Set[String] = Set(
     "Map", "String", "Int", "Long", "Double", "Boolean", "Byte", "Some", "Option", "List",
-    "Throwable",
+    "Throwable", "Vector",
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil", "Resource",
     "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl", "Inr",

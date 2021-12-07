@@ -1,6 +1,6 @@
 Global / useSuperShell := false
 
-lazy val scalaVersions = List("2.12.10", "2.13.3")
+lazy val scalaVersions = List("2.12.15", "2.13.7")
 
 ThisBuild / version := Versions.api4s
 ThisBuild / organization := "com.github.IndiscriminateCoding"
@@ -23,10 +23,10 @@ lazy val codegen = (project in file("codegen"))
     name := "api4s-codegen",
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % Versions.http4s,
-      "io.circe" %% "circe-yaml" % "0.13.1",
+      "io.circe" %% "circe-yaml" % "0.14.1",
       "io.circe" %% "circe-generic" % Versions.circe,
 
-      "org.scalatest" %% "scalatest" % "3.2.7" % "test"
+      "org.scalatest" %% "scalatest" % "3.2.10" % "test"
     )
   )
 

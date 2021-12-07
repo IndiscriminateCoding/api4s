@@ -26,7 +26,7 @@ object Http4sClient {
       case (Parameter.Query(rn), Parameter(n, t, false)) =>
         List(s"""$n foreach (x => _query = _query :+ ("$rn" -> Some(x${addToString(t)})))""")
       case (Parameter.Hdr(rn), Parameter(n, t, false)) =>
-        List(s"""$n foreach (x => _hdrs = http4s.Header("$rn", x${addToString(t)}) :: _hdrs)""")
+        List(s"""$n foreach (x => _hdrs = ("$rn", x${addToString(t)}) :: _hdrs)""")
       case _ => Nil
     }
 
@@ -45,13 +45,13 @@ object Http4sClient {
         case _ => false
       }.map {
         case (Parameter.Hdr(rn), Parameter(n, t, _)) =>
-          s"""http4s.Header("$rn", $n${addToString(t)})"""
+          s"""("$rn", $n${addToString(t)})"""
         case _ => throw new Exception("never happens")
       }
 
       val needsZeroContentLength: Set[Method] = Set(Method.Patch, Method.Post, Method.Put)
       if (e.requestBody.consumes == Consumes.Empty && needsZeroContentLength(method))
-        """http4s.Header("Content-Length", "0")""" :: res
+        """("Content-Length", "0")""" :: res
       else res
       }.mkString(", ")
 
@@ -73,16 +73,20 @@ object Http4sClient {
 
     val encoder = e.requestBody.consumes match {
       case Consumes.Empty => Nil
-      case Consumes.Entity(n, _) => List(s"_hdrs = $n.headers.toList ++ _hdrs")
+      case Consumes.Entity(n, _) =>
+        List(s"_hdrs = $n.headers.headers.map(h => h.name.toString -> h.value) ++ _hdrs")
       case Consumes.JsonBody(n, t) =>
         val hdrs =
-          if (e.requestBody.required) "_hdrs = _encoder.headers.toList ++ _hdrs"
-          else s"$n foreach (_ => _hdrs = _encoder.headers.toList ++ _hdrs)"
+          if (e.requestBody.required) List(
+            "_hdrs = _encoder.headers.headers.map(h => h.name.toString -> h.value) ++ _hdrs"
+          )
+          else List(
+            s"$n foreach (_ => ",
+            "  _hdrs = _encoder.headers.headers.map(h => h.name.toString -> h.value) ++ _hdrs",
+            ")"
+          )
 
-        List(
-          s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]",
-          hdrs
-        )
+        s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]" :: hdrs
       case Consumes.FormData(flds) =>
         val (requiredFormData, optFormData) = flds.partition(_._2.required)
         val requiredFormParams = requiredFormData.map {
@@ -96,12 +100,12 @@ object Http4sClient {
         List(
           s"var _formData = List[(String, String)]($requiredFormParams)",
           "val _encoder = http4s.UrlForm.entityEncoder[F]",
-          "_hdrs = _encoder.headers.toList ++ _hdrs"
+          "_hdrs = _encoder.headers.headers.map(h => h.name.toString -> h.value) ++ _hdrs"
         ) ++ optFormParams
     }
     val entity = {
       val entityLen = "_entity.length.foreach(l =>" +
-        " _hdrs = http4s.Header(\"Content-Length\", l.toString) :: _hdrs)"
+        " _hdrs = (\"Content-Length\", l.toString) :: _hdrs)"
       e.requestBody.consumes match {
         case Consumes.Empty => Nil
         case Consumes.FormData(_) => List(
@@ -153,9 +157,9 @@ object Http4sClient {
       }
 
       List(
-        List(s"client.run(_request).use[F, ${producesPlain(e.produces)}](r => r.status match {"),
+        List(s"client.run(_request).use[${producesPlain(e.produces)}](r => r.status match {"),
         rs.map { case (s, t) => "  " + one(s, t) },
-        List("  case _ => _onError(r)"),
+        List("  case _ => _onError(_request, r)"),
         List("})")
       ).flatten
     }
@@ -171,7 +175,7 @@ object Http4sClient {
       if (queryRequired) List(
         s"  var _query = Vector[(String, Option[String])]($requiredQueryParams)"
       ) else Nil,
-      List(s"  var _hdrs = List[http4s.Header]($requiredHdrParams)"),
+      List(s"  var _hdrs = List[(String, String)]($requiredHdrParams)"),
       encoder.map("  " + _),
       params.map("  " + _),
       entity.map("  " + _),
@@ -181,7 +185,7 @@ object Http4sClient {
         List(s"  uri = http4s.Uri("),
         if (queryRequired) List("    query = http4s.Query.fromVector(_query),") else Nil,
         List(
-          s"""path = s"/$path",""",
+          s"""path = http4s.Uri.Path.unsafeFromString(s"/$path"),""",
           "scheme = scheme,",
           "authority = authority"
         ).map("    " + _),
@@ -201,7 +205,7 @@ object Http4sClient {
       "",
       "import api4s.internal.Helpers",
       "import api4s.outputs._",
-      "import cats.effect.{ Resource, Sync }",
+      "import cats.effect.{ Async, Resource }",
       "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Media, Method, Request, Response, Status, Uri }",
@@ -215,10 +219,10 @@ object Http4sClient {
       "  scheme: Option[Uri.Scheme] = None,",
       "  authority: Option[Uri.Authority] = None,",
       "  onError: Option[Response[F] => F[Throwable]] = None",
-      ")(implicit F: Sync[F]) extends Api[F, F] {",
-      "  private[this] def _onError[A](r: Response[F]) = onError.fold[F[A]](",
-      "    F.raiseError(UnexpectedStatus(r.status))",
-      "  )(f => F.flatMap(f(r))(F.raiseError))",
+      ")(implicit F: Async[F]) extends Api[F, F] {",
+      "  private[this] def _onError[A](req: Request[F], res: Response[F]) = onError.fold[F[A]](",
+      "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
+      "  )(f => F.flatMap(f(res))(F.raiseError))",
       "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>

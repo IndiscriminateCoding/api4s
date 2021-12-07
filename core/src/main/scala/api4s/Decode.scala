@@ -4,6 +4,7 @@ import cats.data.Validated._
 import cats.data._
 import io.circe.Json
 import org.http4s._
+import org.typelevel.ci.CIString
 
 import scala.util.control.NonFatal
 
@@ -19,7 +20,8 @@ object Decode {
   def apply[A]: DecodePartiallyApplied[A] = new DecodePartiallyApplied[A]
 
   class DecodePartiallyApplied[A](private val _unused: Unit = ()) extends AnyVal {
-    def apply[In](in: In, name: String)(implicit
+    def apply[In](in: In, name: String)(
+      implicit
       decode: Decode[In, A]
     ): ValidatedNec[Throwable, A] = decode(in, name)
   }
@@ -33,7 +35,8 @@ object Decode {
     implicit val headerLocation: Location[Headers] = new Location("header")
   }
 
-  implicit def decodeAtLeastOne[I, A](implicit
+  implicit def decodeAtLeastOne[I, A](
+    implicit
     D: Decode[I, List[A]],
     L: Location[I]
   ): Decode[I, A] = (in, name) => D(in, name).fold(Invalid(_), {
@@ -137,8 +140,8 @@ object Decode {
     })
 
   def decodeListFromHeaders[A](cast: String => A, typeName: String): Decode[Headers, List[A]] =
-    decodeListFromCastAndGet(cast, typeName, (f, n) => f.toList.foldLeft[List[String]](Nil) {
-      case (acc, h) if h.name.value.equalsIgnoreCase(n) => h.value :: acc
+    decodeListFromCastAndGet(cast, typeName, (f, n) => f.headers.foldLeft[List[String]](Nil) {
+      case (acc, h) if h.name == CIString(n) => h.value :: acc
       case (acc, _) => acc
     })
 }

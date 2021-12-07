@@ -1,9 +1,9 @@
 package api4s.internal
 
+import cats.FlatMap
 import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
-import cats.effect.Sync
-import cats.{ Applicative, FlatMap }
+import cats.effect.Async
 import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
@@ -12,14 +12,14 @@ import org.http4s.headers._
 
 object Helpers {
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
-    def pathSegments: List[String] = r.uri.path.split('/').filter(_.nonEmpty).toList
+    def pathSegments: Vector[String] = r.uri.path.segments.map(_.toString).filter(_.nonEmpty)
 
     def decodeValidatedOpt[A](
       f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
     )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
-      r.headers.get(`Content-Length`) match {
+      r.headers.get[`Content-Length`] match {
         case Some(l) if l.length == 0 => f(Valid(None))
-        case _ => r.headers.get(`Content-Type`) match {
+        case _ => r.headers.get[`Content-Type`] match {
           case None => f(Valid(None))
           case Some(_) => decodeValidated[A](x => f(x.map(Some(_))))
         }
@@ -36,12 +36,12 @@ object Helpers {
 
   private val printer = Printer.spaces2.copy(dropNullValues = true)
 
-  def circeEntityEncoder[F[_], A: Encoder]: EntityEncoder[F, A] =
+  def circeEntityEncoder[F[_], A : Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
 
-  def circeEntityDecoder[F[_] : Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
+  def circeEntityDecoder[F[_] : Async, A : Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
-  def jsonResponse[F[_], A: Encoder](status: Status)(a: A): Response[F] = {
+  def jsonResponse[F[_], A : Encoder](status: Status)(a: A): Response[F] = {
     val encoder = circeEntityEncoder[F, A]
     val entity = encoder.toEntity(a)
 
@@ -53,8 +53,8 @@ object Helpers {
   }
 
   def textResponse[F[_]](status: Status, mediaType: String)(text: String): Response[F] = {
-    val encoder = EntityEncoder.simple[F, String](Header("Content-Type", mediaType))(s =>
-      Chunk.bytes(s.getBytes(DefaultCharset.nioCharset))
+    val encoder = EntityEncoder.simple[F, String]("Content-Type" -> mediaType)(s =>
+      Chunk.array(s.getBytes(DefaultCharset.nioCharset))
     )
 
     Response(

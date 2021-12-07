@@ -15,8 +15,8 @@ object ClientServerApi {
       s"package $pkg",
       "",
       "import api4s.outputs._",
-      "import cats.{ ~>, Applicative, Defer }",
-      "import cats.effect.{ Bracket, Resource }",
+      "import cats.~>",
+      "import cats.effect.{ MonadCancel, Resource }",
       "import io.circe.Json",
       "import org.http4s.{ Media, Response }",
       "import org.http4s",
@@ -27,9 +27,8 @@ object ClientServerApi {
       "trait Api[F[_], S[_]] {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
-      "  final def mapK[G[_] : Applicative : Defer](f: F ~> G)" +
-        "(implicit B: Bracket[F, Throwable]): Api[G, S] =",
-      "    new Api.MapK(f, this)",
+      "  final def mapK[G[_]](f: F ~> G)(implicit F: MonadCancel[F, _], G: MonadCancel[G, _])" +
+        ": Api[G, S] = new Api.MapK(f, this)",
       "}",
       "",
       MapK(eps).mkString("\n")
@@ -52,10 +51,10 @@ object ClientServerApi {
 
     def apply(eps: Iterable[Endpoint]): List[String] = List(
       "object Api {",
-      "  private class MapK[F[_], G[_] : Applicative : Defer, S[_]](",
+      "  private class MapK[F[_], G[_], S[_]](",
       "    f: F ~> G,",
       "    api: Api[F, S]",
-      "  )(implicit B: Bracket[F, Throwable]) extends Api[G, S] {",
+      "  )(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends Api[G, S] {",
       eps.map(e => "    " + utils(e) + map(e)).mkString("\n"),
       "  }",
       "}"

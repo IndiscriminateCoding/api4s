@@ -27,7 +27,7 @@ trait Endpoint[F[_]] { self =>
   final def run(r: Request[F])(implicit F: Applicative[F]): F[Response[F]] =
     apply(r)(new RoutingErrorAlgebra[F] {
       def methodNotAllowed(allowed: Set[Method]): F[Response[F]] = F.pure(Response(
-        headers = Headers.of(Header("Allow", allowed.mkString(", "))),
+        headers = Headers("Allow" -> allowed.mkString(", ")),
         status = Status.MethodNotAllowed
       ))
 

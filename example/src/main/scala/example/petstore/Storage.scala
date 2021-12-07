@@ -26,7 +26,7 @@ object Storage {
     private[this] var lastId = 0L
     private[this] var pets: List[Pet] = Nil
 
-    def findById(id: Long): IO[Pet] = IO.suspend(synchronized {
+    def findById(id: Long): IO[Pet] = IO.defer(synchronized {
       logger.info(s"findPetById(id = $id)")
       pets.find(_.id == id) match {
         case None => IO.raiseError(new PetNotFound(id))
@@ -58,7 +58,7 @@ object Storage {
       }
     })
 
-    def delete(id: Long): IO[Unit] = IO.suspend(synchronized {
+    def delete(id: Long): IO[Unit] = IO.defer(synchronized {
       logger.debug(s"delete (id = $id)")
       pets.find(_.id == id) match {
         case None => IO.raiseError(new PetNotFound(id))
