@@ -8,6 +8,7 @@ import scala.collection.immutable.ListMap
 
 object Http4sServer {
   object utils extends Utils(S = "F")
+
   import utils._
 
   private def methodMatcher(m: Method, e: Endpoint): List[String] = {
@@ -58,14 +59,14 @@ object Http4sServer {
           "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
           "}"
         )
-      case Produces.One(c, t @ None) =>
+      case Produces.One(c, t@None) =>
         List(s"F.map($on)(_ => ${responseMapperStr(c, t)})")
-      case Produces.One(c, t @ Some(_)) =>
+      case Produces.One(c, t@Some(_)) =>
         List(s"F.map($on)(${responseMapperStr(c, t)})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
-          case ((c, t @ None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
-          case ((c, t @ Some(_)), i) =>
+          case ((c, t@None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
+          case ((c, t@Some(_)), i) =>
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
         } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
@@ -138,6 +139,8 @@ object Http4sServer {
           List("  _apply")
         ).flatten
       }
+    val streaming = endpoints.values.exists(_.values.exists(needStreaming))
+    val api = if (streaming) "Api[F, F]" else "Api[F]"
 
     List(
       List(
@@ -157,7 +160,7 @@ object Http4sServer {
         "",
         s"import $pkg.Model._",
         "",
-        "class Http4sServer[F[_]](api: Api[F, F])(implicit F: Async[F]) extends Endpoint[F] {",
+        s"class Http4sServer[F[_]](api: $api)(implicit F: Async[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
         "  ): F[Response[F]] = request.pathSegments match {"

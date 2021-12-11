@@ -1,7 +1,7 @@
 package api4s.codegen.emitter
 
 import api4s.codegen.ast.Type._
-import api4s.codegen.ast.{ Produces, Type }
+import api4s.codegen.ast.{ Endpoint, Produces, Type }
 import api4s.codegen.utils.Registry.registry
 
 object Utils {
@@ -56,4 +56,23 @@ class Utils(F: String = "F", S: String = "S") {
   val primitive: Set[Type] = Set(TString, TInt, TLong, TFloat, TDouble, TBool)
 
   def typeStr(t: Option[Type]): String = t.fold("Unit")(typeStr)
+
+  def needStreaming(t: Type): Boolean = t match {
+    case TMap(et) => needStreaming(et)
+    case TArr(it) => needStreaming(it)
+    case TObj(flds) => flds.values.exists(f => needStreaming(f.t))
+    case TMedia => true
+    case _ => false
+  }
+
+  def needStreaming(p: Produces): Boolean = p match {
+    case Produces.Untyped => true
+    case Produces.One(_, content) => content.exists { case (_, t) => needStreaming(t) }
+    case Produces.Many(rs) => rs.values.exists(_.exists { case (_, t) => needStreaming(t) })
+  }
+
+  def needStreaming(e: Endpoint): Boolean =
+    e.requestBody.ranges.values.exists(needStreaming) ||
+      e.parameters.exists { case (_, p) => needStreaming(p.t) } ||
+      needStreaming(e.produces)
 }
