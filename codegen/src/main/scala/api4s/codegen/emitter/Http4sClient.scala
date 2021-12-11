@@ -6,6 +6,7 @@ import org.http4s.{ MediaRange, MediaType }
 
 object Http4sClient {
   object clientServerApi extends ClientServerApi(S = "F")
+
   import clientServerApi.utils._
 
   private def endpoint(segments: List[Segment], method: Method, e: Endpoint): List[String] = {
@@ -14,6 +15,9 @@ object Http4sClient {
       case t if primitive(t) => ".toString"
       case _ => throw new Exception(s"can't convert type $t to String")
     }
+
+    def withToString(name: String): String =
+      name ++ addToString(e.parameters.find(_._2.name == name).get._2.t)
 
     val queryRequired = e.parameters.exists {
       case (Parameter.Query(_), _) => true
@@ -53,23 +57,31 @@ object Http4sClient {
       if (e.requestBody.consumes == Consumes.Empty && needsZeroContentLength(method))
         """("Content-Length", "0")""" :: res
       else res
-      }.mkString(", ")
+    }.mkString(", ")
 
-    def segmentPath(parts: List[Segment.Simple]): String = parts.map {
-      case Segment.Static(s) => s
-      case Segment.Argument(p) =>
-        val needEncode = e.parameters.exists {
-          case (Parameter.Path, Parameter(n, TString, _)) if n == p => true
-          case _ => false
-        }
-        if (needEncode) s"$${Uri.pathEncode($p)}"
-        else s"$$$p"
-    }.mkString
+    def needEncode(p: String): Boolean = e.parameters.exists {
+      case (Parameter.Path, Parameter(n, TString, _)) if n == p => true
+      case _ => false
+    }
 
     val path = segments.map {
-      case s: Segment.Simple => segmentPath(List(s))
-      case Segment.Mixed(ps) => segmentPath(ps)
-    }.mkString("/")
+      case Segment.Static(s) => s"""Uri.Path.Segment.encoded("$s")"""
+      case Segment.Argument(p) =>
+        val p0 = withToString(p)
+        val encode = if (needEncode(p)) "" else ".encoded"
+        s"Uri.Path.Segment$encode($p0)"
+      case Segment.Mixed(ps) =>
+        var encode = false
+        val mixed = ps.map {
+          case Segment.Static(s) => s
+          case Segment.Argument(p) =>
+            encode = encode || needEncode(p)
+            s"$$$p"
+        }.mkString
+
+        if (encode) s"""Uri.Path.Segment(s"$mixed")"""
+        else s"""Uri.Path.Segment.encoded(s"$mixed")"""
+    }.mkString(", ")
 
     val encoder = e.requestBody.consumes match {
       case Consumes.Empty => Nil
@@ -182,10 +194,10 @@ object Http4sClient {
       List(
         List("val _request = Request[F]("),
         List(s"  method = Method.${method.toString.toUpperCase},"),
-        List(s"  uri = http4s.Uri("),
+        List(s"  uri = Uri("),
         if (queryRequired) List("    query = http4s.Query.fromVector(_query),") else Nil,
         List(
-          s"""path = http4s.Uri.Path.unsafeFromString(s"/$path"),""",
+          s"path = Uri.Path(segments = Vector($path), absolute = true),",
           "scheme = scheme,",
           "authority = authority"
         ).map("    " + _),
@@ -200,6 +212,8 @@ object Http4sClient {
   }
 
   def apply(pkg: String, endpoints: Map[List[Segment], Map[Method, Endpoint]]): String = {
+    val streaming = endpoints.values.flatMap(_.values).exists(needStreaming)
+    val api = if (streaming) "Api[F, F]" else "Api[F]"
     List(
       s"package $pkg",
       "",
@@ -219,7 +233,7 @@ object Http4sClient {
       "  scheme: Option[Uri.Scheme] = None,",
       "  authority: Option[Uri.Authority] = None,",
       "  onError: Option[Response[F] => F[Throwable]] = None",
-      ")(implicit F: Async[F]) extends Api[F, F] {",
+      s")(implicit F: Async[F]) extends $api {",
       "  private[this] def _onError[A](req: Request[F], res: Response[F]) = onError.fold[F[A]](",
       "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
       "  )(f => F.flatMap(f(res))(F.raiseError))",

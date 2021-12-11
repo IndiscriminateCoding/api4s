@@ -10,6 +10,8 @@ object ClientServerApi {
     import default._
 
     val eps = endpoints.values.flatMap(_.values)
+    val streaming = eps.exists(utils.needStreaming)
+    def api(f: String, s: String): String = if (streaming) s"Api[$f, $s]" else s"Api[$f]"
 
     List(
       s"package $pkg",
@@ -24,14 +26,14 @@ object ClientServerApi {
       "",
       s"import $pkg.Model._",
       "",
-      "trait Api[F[_], S[_]] {",
+      s"trait ${api("F[_]", "S[_]")} {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
       "  final def mapK[G[_]](f: F ~> G)(implicit F: MonadCancel[F, _], G: MonadCancel[G, _])" +
-        ": Api[G, S] = new Api.MapK(f, this)",
+        s": ${api("G", "S")} = new Api.MapK(f, this)",
       "}",
       "",
-      MapK(eps).mkString("\n")
+      MapK(eps, streaming).mkString("\n")
     ).mkString("\n")
   }
 
@@ -49,12 +51,13 @@ object ClientServerApi {
       })
     }
 
-    def apply(eps: Iterable[Endpoint]): List[String] = List(
+    def apply(eps: Iterable[Endpoint], streaming: Boolean): List[String] = List(
       "object Api {",
-      "  private class MapK[F[_], G[_], S[_]](",
+      s"  private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
       "    f: F ~> G,",
-      "    api: Api[F, S]",
-      "  )(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends Api[G, S] {",
+      s"    api: Api[F${if (streaming) ", S" else ""}]",
+      "  )(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
+        s"Api[G${if (streaming) ", S" else ""}] {",
       eps.map(e => "    " + utils(e) + map(e)).mkString("\n"),
       "  }",
       "}"
@@ -64,6 +67,7 @@ object ClientServerApi {
 
 class ClientServerApi(F: String = "F", S: String = "S") {
   object utils extends Utils(F, S)
+
   import utils._
 
   private def convertParam(p: Parameter): String = p match {
@@ -72,9 +76,9 @@ class ClientServerApi(F: String = "F", S: String = "S") {
   }
 
   private def convertParamDefault(p: Parameter): String = p match {
-    case Parameter(n, t @ TMedia, true) =>
+    case Parameter(n, t@TMedia, true) =>
       s"$n: ${typeStr(t)} = Media(http4s.EmptyBody, http4s.Headers.empty)"
-    case Parameter(n, t @ TArr(_), true) => s"$n: ${typeStr(t)} = Nil"
+    case Parameter(n, t@TArr(_), true) => s"$n: ${typeStr(t)} = Nil"
     case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
     case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"
   }
