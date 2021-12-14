@@ -46,9 +46,9 @@ object Api4s extends AutoPlugin {
   )
 
   override lazy val projectSettings: Seq[Def.Setting[_]] = super.projectSettings ++ Seq(
-    sourceGenerators in Compile += Def.task {
+    Compile / sourceGenerators += Def.task {
       def parsePkg(s: String): File =
-        s.split('.').foldLeft((sourceManaged in Compile).value) { case (pkg, frg) => pkg / frg }
+        s.split('.').foldLeft((Compile / sourceManaged).value) { case (pkg, frg) => pkg / frg }
 
       api4sSources.value flatMap { case Src(file, pkg, server, client, f) =>
         val src = scala.io.Source.fromFile(file)
