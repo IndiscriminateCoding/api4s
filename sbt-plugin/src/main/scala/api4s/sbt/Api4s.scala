@@ -72,7 +72,7 @@ object Api4s extends AutoPlugin {
         if (server || client) {
           val apiF = p / "Api.scala"
           res += apiF
-          IO.write(apiF, ClientServerApi(pkg, api.endpoints))
+          IO.write(apiF, ClientServerApi(pkg, api))
         }
 
         // Server

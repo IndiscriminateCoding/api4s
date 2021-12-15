@@ -6,17 +6,18 @@ import api4s.codegen.ast._
 object ClientServerApi {
   object default extends ClientServerApi()
 
-  def apply(pkg: String, endpoints: Map[List[Segment], Map[Method, Endpoint]]): String = {
+  def apply(pkg: String, api: Api): String = {
     import default._
 
-    val eps = endpoints.values.flatMap(_.values)
+    val eps = api.endpoints.values.flatMap(_.values)
     val streaming = eps.exists(utils.needStreaming)
-    def api(f: String, s: String): String = if (streaming) s"Api[$f, $s]" else s"Api[$f]"
+    def declApi(f: String, s: String): String = if (streaming) s"Api[$f, $s]" else s"Api[$f]"
 
     List(
       s"package $pkg",
       "",
       "import api4s.outputs._",
+      "import api4s.RouteInfo",
       "import cats.~>",
       "import cats.effect.{ MonadCancel, Resource }",
       "import io.circe.Json",
@@ -26,14 +27,18 @@ object ClientServerApi {
       "",
       s"import $pkg.Model._",
       "",
-      s"trait ${api("F[_]", "S[_]")} {",
+      s"trait ${declApi("F[_]", "S[_]")} {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
       "  final def mapK[G[_]](f: F ~> G)(implicit F: MonadCancel[F, _], G: MonadCancel[G, _])" +
-        s": ${api("G", "S")} = new Api.MapK(f, this)",
+        s": ${declApi("G", "S")} = new Api.MapK(f, this)",
       "}",
       "",
-      MapK(eps, streaming).mkString("\n")
+      "object Api {",
+      Routes(api).mkString("\n"),
+      "",
+      MapK(eps, streaming).mkString("\n"),
+      "}"
     ).mkString("\n")
   }
 
@@ -52,16 +57,24 @@ object ClientServerApi {
     }
 
     def apply(eps: Iterable[Endpoint], streaming: Boolean): List[String] = List(
-      "object Api {",
-      s"  private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
-      "    f: F ~> G,",
-      s"    api: Api[F${if (streaming) ", S" else ""}]",
-      "  )(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
+      s"private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
+      "  f: F ~> G,",
+      s"  api: Api[F${if (streaming) ", S" else ""}]",
+      ")(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
         s"Api[G${if (streaming) ", S" else ""}] {",
-      eps.map(e => "    " + utils(e) + map(e)).mkString("\n"),
-      "  }",
+      eps.map(e => "  " + utils(e) + map(e)).mkString("\n"),
       "}"
-    )
+    ).map("  " ++ _)
+  }
+
+  private object Routes {
+    def apply(api: Api): List[String] = {
+      val names = api.endpoints.values.flatMap(_.values).map(_.name.get)
+      val endpoints = names.map(name => s"""val $name = RouteInfo("${api.version}", "$name")""")
+      val all = s"val _all: Set[RouteInfo] = Set(${names.mkString(", ")})"
+
+      endpoints.toList :+ all
+    }.map("  " + _)
   }
 }
 

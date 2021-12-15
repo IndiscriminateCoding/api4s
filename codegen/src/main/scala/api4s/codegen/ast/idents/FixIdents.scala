@@ -69,6 +69,6 @@ object FixIdents {
       }
       nsegments -> nmethods
     }
-    Api(types, endpoints)
+    Api(api.version, types, endpoints)
   }
 }

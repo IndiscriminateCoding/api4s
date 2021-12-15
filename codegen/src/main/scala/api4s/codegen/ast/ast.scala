@@ -5,6 +5,7 @@ import org.http4s.{ MediaRange, MediaType }
 import scala.collection.immutable.{ ListMap, SortedMap }
 
 case class Api(
+  version: String,
   types: ListMap[String, Type],
   endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]]
 )

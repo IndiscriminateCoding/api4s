@@ -203,6 +203,7 @@ object Http4sClient {
         ).map("    " + _),
         List("  ),"),
         bodyStr.map("  " + _),
+        List(s"  attributes = Vault.empty.insert(api4s.RouteInfo.key, Api.${e.name.get}),"),
         List("  headers = http4s.Headers(_hdrs)"),
         List(")")
       ).flatten.map("  " + _),
@@ -224,6 +225,7 @@ object Http4sClient {
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Media, Method, Request, Response, Status, Uri }",
       "import org.http4s",
+      "import org.typelevel.vault.Vault",
       "import shapeless.{ :+:, CNil, Coproduct }",
       "",
       s"import $pkg.Model._",

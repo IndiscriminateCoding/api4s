@@ -9,6 +9,7 @@ import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.headers._
+import org.typelevel.vault.Vault
 
 object Helpers {
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
@@ -41,7 +42,7 @@ object Helpers {
 
   def circeEntityDecoder[F[_] : Async, A : Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
-  def jsonResponse[F[_], A : Encoder](status: Status)(a: A): Response[F] = {
+  def jsonResponse[F[_], A : Encoder](status: Status, attrs: Vault)(a: A): Response[F] = {
     val encoder = circeEntityEncoder[F, A]
     val entity = encoder.toEntity(a)
 
@@ -52,24 +53,28 @@ object Helpers {
     )
   }
 
-  def textResponse[F[_]](status: Status, mediaType: String)(text: String): Response[F] = {
+  def textResponse[F[_]](status: Status, mediaType: String, attrs: Vault)(
+    text: String
+  ): Response[F] = {
     val encoder = EntityEncoder.simple[F, String]("Content-Type" -> mediaType)(s =>
-      Chunk.array(s.getBytes(DefaultCharset.nioCharset))
+      Chunk.array(s.getBytes(Charset.`UTF-8`.nioCharset))
     )
 
     Response(
       status = status,
       headers = encoder.headers,
-      body = encoder.toEntity(text).body
+      body = encoder.toEntity(text).body,
+      attributes = attrs
     )
   }
 
-  def mediaResponse[F[_]](status: Status)(media: Media[F]): Response[F] = Response(
+  def mediaResponse[F[_]](status: Status)(media: Media[F], attrs: Vault): Response[F] = Response(
     status = status,
     headers = media.headers,
-    body = media.body
+    body = media.body,
+    attributes = attrs
   )
 
-  def emptyResponse[F[_]](status: Status): Response[F] =
-    Response(status = status)
+  def emptyResponse[F[_]](status: Status, attrs: Vault): Response[F] =
+    Response(status = status, attributes = attrs)
 }

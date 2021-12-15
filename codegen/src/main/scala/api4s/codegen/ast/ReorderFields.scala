@@ -16,6 +16,7 @@ object ReorderFields {
     }
 
   def apply(api: Api): Api = Api(
+    version = api.version,
     types = reorderTypeParams(api.types),
     endpoints = api.endpoints
   )

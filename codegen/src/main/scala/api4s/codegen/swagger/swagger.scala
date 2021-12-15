@@ -10,6 +10,7 @@ import org.http4s.MediaRange
 import scala.collection.immutable.{ ListMap, SortedMap }
 
 case class Root(
+  info: Info,
   basePath: Option[String],
   consumes: Option[List[String]],
   produces: Option[List[String]],
@@ -68,7 +69,7 @@ case class Root(
 
   def types: ListMap[String, Type] = definitions.getOrElse(ListMap.empty).mapOnValues(_.getType)
 
-  def api: Api = Api(types, endpoints)
+  def api: Api = Api(info.version, types, endpoints)
 }
 
 object Root {
@@ -82,6 +83,8 @@ object Root {
     )
   }
 }
+
+case class Info(version: String)
 
 case class PathItem(
   ops: ListMap[Method, Operation],

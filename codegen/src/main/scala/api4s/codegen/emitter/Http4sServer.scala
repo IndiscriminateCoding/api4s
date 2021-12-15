@@ -40,16 +40,17 @@ object Http4sServer {
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 
+    val attrs = s"Vault.empty.insert(api4s.RouteInfo.key, Api.${e.name.get})"
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
-      case None => s"Helpers.emptyResponse[F](Status.$c)"
+      case None => s"Helpers.emptyResponse[F](Status.$c, $attrs)"
       case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
-        s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
+        s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c, $attrs)"
       case Some((mt, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
-        s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
+        s"""Helpers.textResponse[F](Status.$c, "${sw.result}", $attrs)"""
       case Some(_) =>
-        s"Helpers.mediaResponse[F](Status.$c)"
+        s"Helpers.mediaResponse[F](Status.$c, $attrs)"
     }
 
     def apiMapper(on: String) = e.produces match {
@@ -156,6 +157,7 @@ object Http4sServer {
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
+        "import org.typelevel.vault.Vault",
         "import shapeless.{ Inl, Inr }",
         "",
         s"import $pkg.Model._",
