@@ -40,7 +40,7 @@ object Http4sServer {
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 
-    val attrs = s"Vault.empty.insert(api4s.RouteInfo.key, Api.${e.name.get})"
+    val attrs = s"_vault_${e.name.get}"
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
       case None => s"Helpers.emptyResponse[F](Status.$c, $attrs)"
       case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
@@ -142,6 +142,10 @@ object Http4sServer {
       }
     val streaming = endpoints.values.exists(_.values.exists(needStreaming))
     val api = if (streaming) "Api[F, F]" else "Api[F]"
+    val vaults = endpoints.values
+      .flatMap(_.values)
+      .map(_.name.get)
+      .map(n => s"private[this] val _vault_$n = Vault.empty.insert(api4s.RouteInfo.key, Api.$n)")
 
     List(
       List(
@@ -163,6 +167,8 @@ object Http4sServer {
         s"import $pkg.Model._",
         "",
         s"class Http4sServer[F[_]](api: $api)(implicit F: Async[F]) extends Endpoint[F] {",
+        vaults.map("  " + _).mkString("\n"),
+        "",
         "  def apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
         "  ): F[Response[F]] = request.pathSegments match {"
