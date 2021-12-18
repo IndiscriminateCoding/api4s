@@ -7,7 +7,7 @@ import org.http4s._
 
 object Main extends IOApp {
   val server: Server = new Server(Storage())
-  val httpApp: HttpApp[IO] = new Http4sServer[IO](_ => server).toHttpApp
+  val httpApp: HttpApp[IO] = new Http4sServer[IO](server).toHttpApp
 
   def run(args: List[String]): IO[ExitCode] = for {
     _ <- BlazeServerBuilder[IO]

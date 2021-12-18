@@ -10,6 +10,8 @@ object Http4sClient {
   import clientServerApi.utils._
 
   private def endpoint(segments: List[Segment], method: Method, e: Endpoint): List[String] = {
+    val name = e.name.get
+
     def addToString(t: Type): String = t match {
       case TString => ""
       case t if primitive(t) => ".toString"
@@ -170,7 +172,7 @@ object Http4sClient {
 
       List(
         List(
-          s"client(Api.${e.name.get}).run(_request).use[${producesPlain(e.produces)}]" +
+          s"client(Api.$name).run(_request).use[${producesPlain(e.produces)}]" +
             s"(r => r.status match {"
         ),
         rs.map { case (s, t) => "  " + one(s, t) },
@@ -180,7 +182,7 @@ object Http4sClient {
     }
 
     val run = e.produces match {
-      case Produces.Untyped => List(s"client(Api.${e.name.get}).run(_request)")
+      case Produces.Untyped => List(s"client(Api.$name).run(_request)")
       case Produces.One(status, t) => runOn(List(status -> t))
       case Produces.Many(rs) => runOn(rs.toList)
     }

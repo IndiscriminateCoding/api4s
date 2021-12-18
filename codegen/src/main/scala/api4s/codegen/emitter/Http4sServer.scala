@@ -13,10 +13,11 @@ object Http4sServer {
 
   private def methodMatcher(m: Method, e: Endpoint): List[String] = {
     import Type._
+    val name = e.name.get
 
     def primitiveStr(t: Type): String =
       if (primitive(t)) typeStr(t)
-      else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = ${e.name.get})")
+      else throw new Exception(s"Type ${typeStr(t)} isn't primitive (endpoint = $name)")
 
     val params = e.orderedParameters.map {
       case (Parameter.Path, Parameter(n, t, true)) =>
@@ -75,16 +76,34 @@ object Http4sServer {
         ).flatten
     }
 
+    val callRouter =
+      if (e.orderedParameters.isEmpty)
+        List(
+          List(s"Router.route(Api.$name, api.$name)(_api =>"),
+          apiMapper("_api").map("  " + _),
+          List(")")
+        ).flatten
+      else List(
+        List(
+          s"val _badRequest = (t: NonEmptyChain[Throwable]) =>",
+          s"  Router.badRequest(Api.$name, Errors(t))",
+          s"val _route = (x: ${producesLifted(e.produces)}) =>",
+          s"  Router.route(Api.$name, x)(x =>"
+        ),
+        apiMapper("x").map("    " + _),
+        List("  )"),
+      ).flatten
+
     val apiValidated =
-      if (e.orderedParameters.isEmpty) apiMapper(s"api(Api.${e.name.get}).${e.name.get}")
+      if (e.orderedParameters.isEmpty) Nil
       else
         List(
           List("_validatedMapN("),
           params.map(p => s"  $p,"),
-          List(s"  api(Api.${e.name.get}).${e.name.get}"),
-          List(").fold[F[Response[F]]](e => F.raiseError(Errors(e)), x =>"),
-          apiMapper("x").map("  " + _),
-          List(")")
+          List(
+            s"  api.$name",
+            ").fold(_badRequest, _route)"
+          )
         ).flatten
 
     val apiCallWithBody = e.requestBody.consumes match {
@@ -105,7 +124,11 @@ object Http4sServer {
       case Consumes.Empty => apiValidated
     }
 
-    s"case Method.${m.toString.toUpperCase} =>" :: apiCallWithBody.map("  " + _)
+    List(
+      List(s"case Method.${m.toString.toUpperCase} =>"),
+      callRouter.map("  " + _),
+      apiCallWithBody.map("  " + _)
+    ).flatten
   }
 
   private def segmentsMatcher(s: List[Segment]): String = {
@@ -128,7 +151,7 @@ object Http4sServer {
         val allowed = methods.keys.map(m => s"Method.${m.toString.toUpperCase}").mkString(", ")
         val methodList = methods
           .flatMap { case (m, e) => methodMatcher(m, e) }
-          .toList :+ s"case _ => RoutingErrorAlgebra.methodNotAllowed($allowed)"
+          .toList :+ s"case _ => Router.methodNotAllowed($allowed)"
 
         List(
           List(segmentsMatcher(segment)),
@@ -145,30 +168,29 @@ object Http4sServer {
       List(
         s"package $pkg",
         "",
-        "import api4s.{ Decode, Endpoint, Errors, RouteInfo }",
-        "import api4s.Endpoint.RoutingErrorAlgebra",
+        "import api4s._",
+        "import api4s.Endpoint.Router",
         "import api4s.internal.Helpers",
         "import api4s.internal.Helpers.RichRequest",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
+        "import cats.data.NonEmptyChain",
         "import cats.effect.{ Async, Resource }",
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
-        "import shapeless.{ Inl, Inr }",
+        "import shapeless.{ :+:, CNil, Coproduct, Inl, Inr }",
         "",
         s"import $pkg.Model._",
         "",
-        "class Http4sServer[F[_]](",
-        s"  api: RouteInfo => $api",
-        ")(implicit F: Async[F]) extends Endpoint[F] {",
+        s"class Http4sServer[F[_]](api: $api)(implicit F: Async[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
-        "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
+        "    Router: Router[F]",
         "  ): F[Response[F]] = request.pathSegments match {"
       ),
       endpointList.map("    " + _),
       List(
-        "    case _ => RoutingErrorAlgebra.notFound",
+        "    case _ => Router.notFound",
         "  }",
         "}"
       )
