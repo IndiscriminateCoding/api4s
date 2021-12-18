@@ -21,7 +21,7 @@ class ServerTest extends AnyFlatSpec with Matchers {
     ._1
 
   private[this] val client = new Http4sClient[IO](
-    blazeClient,
+    _ => blazeClient,
     authority = Some(Uri.Authority(
       host = Uri.RegName("localhost"),
       port = Some(8080)

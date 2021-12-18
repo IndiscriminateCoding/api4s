@@ -40,17 +40,15 @@ object Http4sServer {
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 
-    val attrs = s"_vault_${e.name.get}"
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
-      case None => s"Helpers.emptyResponse[F](Status.$c, $attrs)"
+      case None => s"Helpers.emptyResponse[F](Status.$c)"
       case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
-        s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c, $attrs)"
+        s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
       case Some((mt, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
-        s"""Helpers.textResponse[F](Status.$c, "${sw.result}", $attrs)"""
-      case Some(_) =>
-        s"Helpers.mediaResponse[F](Status.$c, $attrs)"
+        s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
+      case Some(_) => s"Helpers.mediaResponse[F](Status.$c)"
     }
 
     def apiMapper(on: String) = e.produces match {
@@ -78,12 +76,12 @@ object Http4sServer {
     }
 
     val apiValidated =
-      if (e.orderedParameters.isEmpty) apiMapper(s"api.${e.name.get}")
+      if (e.orderedParameters.isEmpty) apiMapper(s"api(Api.${e.name.get}).${e.name.get}")
       else
         List(
           List("_validatedMapN("),
           params.map(p => s"  $p,"),
-          List(s"  api.${e.name.get}"),
+          List(s"  api(Api.${e.name.get}).${e.name.get}"),
           List(").fold[F[Response[F]]](e => F.raiseError(Errors(e)), x =>"),
           apiMapper("x").map("  " + _),
           List(")")
@@ -142,16 +140,12 @@ object Http4sServer {
       }
     val streaming = endpoints.values.exists(_.values.exists(needStreaming))
     val api = if (streaming) "Api[F, F]" else "Api[F]"
-    val vaults = endpoints.values
-      .flatMap(_.values)
-      .map(_.name.get)
-      .map(n => s"private[this] val _vault_$n = Vault.empty.insert(api4s.RouteInfo.key, Api.$n)")
 
     List(
       List(
         s"package $pkg",
         "",
-        "import api4s.{ Decode, Endpoint, Errors }",
+        "import api4s.{ Decode, Endpoint, Errors, RouteInfo }",
         "import api4s.Endpoint.RoutingErrorAlgebra",
         "import api4s.internal.Helpers",
         "import api4s.internal.Helpers.RichRequest",
@@ -161,14 +155,13 @@ object Http4sServer {
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
-        "import org.typelevel.vault.Vault",
         "import shapeless.{ Inl, Inr }",
         "",
         s"import $pkg.Model._",
         "",
-        s"class Http4sServer[F[_]](api: $api)(implicit F: Async[F]) extends Endpoint[F] {",
-        vaults.map("  " + _).mkString("\n"),
-        "",
+        "class Http4sServer[F[_]](",
+        s"  api: RouteInfo => $api",
+        ")(implicit F: Async[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
         "    RoutingErrorAlgebra: RoutingErrorAlgebra[F]",
         "  ): F[Response[F]] = request.pathSegments match {"

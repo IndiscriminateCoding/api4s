@@ -169,7 +169,10 @@ object Http4sClient {
       }
 
       List(
-        List(s"client.run(_request).use[${producesPlain(e.produces)}](r => r.status match {"),
+        List(
+          s"client(Api.${e.name.get}).run(_request).use[${producesPlain(e.produces)}]" +
+            s"(r => r.status match {"
+        ),
         rs.map { case (s, t) => "  " + one(s, t) },
         List("  case _ => _onError(_request, r)"),
         List("})")
@@ -177,7 +180,7 @@ object Http4sClient {
     }
 
     val run = e.produces match {
-      case Produces.Untyped => List("client.run(_request)")
+      case Produces.Untyped => List(s"client(Api.${e.name.get}).run(_request)")
       case Produces.One(status, t) => runOn(List(status -> t))
       case Produces.Many(rs) => runOn(rs.toList)
     }
@@ -203,7 +206,6 @@ object Http4sClient {
         ).map("    " + _),
         List("  ),"),
         bodyStr.map("  " + _),
-        List(s"  attributes = _vault_${e.name.get},"),
         List("  headers = http4s.Headers(_hdrs)"),
         List(")")
       ).flatten.map("  " + _),
@@ -213,40 +215,33 @@ object Http4sClient {
   }
 
   def apply(pkg: String, endpoints: Map[List[Segment], Map[Method, Endpoint]]): String = {
-    val eps = endpoints.values.flatMap(_.values)
-    val streaming = eps.exists(needStreaming)
+    val streaming = endpoints.values.flatMap(_.values).exists(needStreaming)
     val api = if (streaming) "Api[F, F]" else "Api[F]"
-    val vaults = eps
-      .map(_.name.get)
-      .map(n => s"private[this] val _vault_$n = vault.insert(api4s.RouteInfo.key, Api.$n)")
 
     List(
       s"package $pkg",
       "",
       "import api4s.internal.Helpers",
       "import api4s.outputs._",
+      "import api4s.RouteInfo",
       "import cats.effect.{ Async, Resource }",
       "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Media, Method, Request, Response, Status, Uri }",
       "import org.http4s",
-      "import org.typelevel.vault.Vault",
       "import shapeless.{ :+:, CNil, Coproduct }",
       "",
       s"import $pkg.Model._",
       "",
       "class Http4sClient[F[_]](",
-      "  client: Client[F],",
+      "  client: RouteInfo => Client[F],",
       "  scheme: Option[Uri.Scheme] = None,",
       "  authority: Option[Uri.Authority] = None,",
-      "  onError: Option[Response[F] => F[Throwable]] = None,",
-      "  vault: Vault = Vault.empty",
+      "  onError: Option[(Request[F], Response[F]) => F[Throwable]] = None",
       s")(implicit F: Async[F]) extends $api {",
-      vaults.map("  " + _).mkString("\n"),
-      "",
       "  private[this] def _onError[A](req: Request[F], res: Response[F]) = onError.fold[F[A]](",
       "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
-      "  )(f => F.flatMap(f(res))(F.raiseError))",
+      "  )(f => F.flatMap(f(req, res))(F.raiseError))",
       "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>

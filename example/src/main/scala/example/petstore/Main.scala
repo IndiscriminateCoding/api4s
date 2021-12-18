@@ -3,12 +3,11 @@ package example.petstore
 import cats.effect.{ ExitCode, IO, IOApp }
 import example.petstore.Storage.PetNotFound
 import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.{ Response, Status }
+import org.http4s._
 
 object Main extends IOApp {
-  private[this] val httpApp = new Http4sServer[IO](
-    new Server(Storage())
-  ).toHttpApp
+  val server: Server = new Server(Storage())
+  val httpApp: HttpApp[IO] = new Http4sServer[IO](_ => server).toHttpApp
 
   def run(args: List[String]): IO[ExitCode] = for {
     _ <- BlazeServerBuilder[IO]
