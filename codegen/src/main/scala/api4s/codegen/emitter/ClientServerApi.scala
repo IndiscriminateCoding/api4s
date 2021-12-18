@@ -32,8 +32,11 @@ object ClientServerApi {
       s"trait ${declApi("F[_]", "S[_]")} {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
+      s"  final def mapK[G[_]](f: RouteInfo => F ~> G)(implicit F: MonadCancel[F, _]," +
+        s" G: MonadCancel[G, _]): ${declApi("G", "S")} = new Api.MapK(f, this)",
+      "",
       "  final def mapK[G[_]](f: F ~> G)(implicit F: MonadCancel[F, _], G: MonadCancel[G, _])" +
-        s": ${declApi("G", "S")} = new Api.MapK(f, this)",
+        s": ${declApi("G", "S")} = mapK(_ => f)",
       "}",
       "",
       "object Api {",
@@ -48,25 +51,29 @@ object ClientServerApi {
     object utils extends ClientServerApi(F = "G")
 
     def map(e: Endpoint): String = {
+      val name = e.name.get
       val params = e.orderedParameters.map(_._2.name) match {
         case Nil => ""
         case ps => s"(${ps.mkString(", ")})"
       }
+
       " = " + (e.produces match {
-        case Produces.Untyped => s"this.api.${e.name.get}$params.mapK(this.f)"
-        case _ => s"this.f(this.api.${e.name.get}$params)"
+        case Produces.Untyped => s"this.api.$name$params.mapK(this.f(Api.$name))"
+        case _ => s"this.f(Api.$name)(this.api.$name$params)"
       })
     }
 
     def apply(eps: Iterable[Endpoint], streaming: Boolean): List[String] = List(
-      s"private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
-      "  f: F ~> G,",
-      s"  api: Api[F${if (streaming) ", S" else ""}]",
-      ")(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
-        s"Api[G${if (streaming) ", S" else ""}] {",
-      eps.map(e => "  " + utils(e) + map(e)).mkString("\n"),
-      "}"
-    ).map("  " ++ _)
+      List(
+        s"private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
+        "  f: RouteInfo => F ~> G,",
+        s"  api: Api[F${if (streaming) ", S" else ""}]",
+        ")(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
+          s"Api[G${if (streaming) ", S" else ""}] {"
+      ),
+      eps.map(e => "  " + utils(e) + map(e)),
+      List("}")
+    ).flatten.map("  " ++ _)
   }
 
   private object Routes {
