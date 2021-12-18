@@ -11,13 +11,12 @@ trait Endpoint[F[_]] { self =>
   final def orElse(other: Endpoint[F]): Endpoint[F] = new Endpoint[F] {
     def apply(request: Request[F])(R: Router[F]): F[Response[F]] =
       self(request)(new Router[F] {
-        def route[A](info: RouteInfo, x: A)(f: A => F[Response[F]]): F[Response[F]] =
-          R.route(info, x)(f)
+        def response(info: RouteInfo, res: F[Response[F]]): F[Response[F]] = R.response(info, res)
 
         def methodNotAllowed(a: Set[Method]): F[Response[F]] =
           other(request)(new Router[F] {
-            def route[A](info: RouteInfo, x: A)(f: A => F[Response[F]]): F[Response[F]] =
-              R.route(info, x)(f)
+            def response(info: RouteInfo, res: F[Response[F]]): F[Response[F]] =
+              R.response(info, res)
 
             def methodNotAllowed(b: Set[Method]): F[Response[F]] = R.methodNotAllowed(a ++ b)
 
@@ -40,7 +39,7 @@ trait Endpoint[F[_]] { self =>
 
 object Endpoint {
   trait Router[F[_]] {
-    def route[A](info: RouteInfo, x: A)(f: A => F[Response[F]]): F[Response[F]]
+    def response(info: RouteInfo, res: F[Response[F]]): F[Response[F]]
 
     def methodNotAllowed(allowed: Set[Method]): F[Response[F]]
 
@@ -53,7 +52,7 @@ object Endpoint {
 
   object Router {
     class Default[F[_]](implicit F: ApplicativeThrow[F]) extends Router[F] {
-      def route[A](info: RouteInfo, x: A)(f: A => F[Response[F]]): F[Response[F]] = f(x)
+      def response(info: RouteInfo, res: F[Response[F]]): F[Response[F]] = res
 
       def methodNotAllowed(allowed: Set[Method]): F[Response[F]] = F.pure(Response(
         headers = Headers("Allow" -> allowed.mkString(", ")),

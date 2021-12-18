@@ -79,8 +79,11 @@ object Http4sServer {
     val callRouter =
       if (e.orderedParameters.isEmpty)
         List(
-          List(s"Router.route(Api.$name, api.$name)(_api =>"),
-          apiMapper("_api").map("  " + _),
+          List(
+            "Router.response(",
+            s"  Api.$name,",
+          ),
+          apiMapper(s"api.$name").map("  " + _),
           List(")")
         ).flatten
       else List(
@@ -88,7 +91,8 @@ object Http4sServer {
           s"val _badRequest = (t: NonEmptyChain[Throwable]) =>",
           s"  Router.badRequest(Api.$name, Errors(t))",
           s"val _route = (x: ${producesLifted(e.produces)}) =>",
-          s"  Router.route(Api.$name, x)(x =>"
+          "  Router.response(",
+          s"    Api.$name,"
         ),
         apiMapper("x").map("    " + _),
         List("  )"),
