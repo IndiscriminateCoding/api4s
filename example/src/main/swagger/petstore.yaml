@@ -22,6 +22,7 @@ produces:
 paths:
   /pets:
     get:
+      tags: [search]
       description: Returns all pets from with specified tags
       operationId: findPets
       parameters:
@@ -47,6 +48,7 @@ paths:
             items:
               $ref: '#/definitions/Pet'
     post:
+      tags: [modify]
       description: Creates or update a pet in the store
       operationId: addPet
       parameters:
@@ -67,6 +69,7 @@ paths:
             $ref: '#/definitions/Pet'
   /pets/{id}:
     get:
+      tags: [search]
       description: Returns a pet with specified ID
       operationId: findPetById
       parameters:
@@ -84,6 +87,7 @@ paths:
         404:
           description: pet not found
     delete:
+      tags: [modify]
       description: deletes a single pet based on the ID supplied
       operationId: deletePet
       parameters:

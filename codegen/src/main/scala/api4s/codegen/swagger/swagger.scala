@@ -147,6 +147,7 @@ object PathItem {
 
 case class Operation(
   operationId: Option[String],
+  tags: Option[List[String]],
   consumes: Option[List[String]],
   produces: Option[List[String]],
   parameters: Option[List[Parameter]],
@@ -250,6 +251,7 @@ case class Operation(
 
     Endpoint(
       name = operationId,
+      tags = tags.getOrElse(Nil),
       requestBody = requestBody,
       parameters = params,
       responses = resps

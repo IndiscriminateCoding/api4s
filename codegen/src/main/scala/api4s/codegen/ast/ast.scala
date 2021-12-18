@@ -68,6 +68,7 @@ object Parameter {
 
 case class Endpoint(
   name: Option[String],
+  tags: List[String],
   requestBody: RequestBody,
   parameters: List[(Parameter.Kind, Parameter)],
   responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]

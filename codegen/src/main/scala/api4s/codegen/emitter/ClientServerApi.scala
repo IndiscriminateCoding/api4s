@@ -3,10 +3,12 @@ package api4s.codegen.emitter
 import api4s.codegen.ast.Type._
 import api4s.codegen.ast._
 
+import java.io.File
+
 object ClientServerApi {
   object default extends ClientServerApi()
 
-  def apply(pkg: String, api: Api): String = {
+  def apply(pkg: String, file: File, api: Api): String = {
     import default._
 
     val eps = api.endpoints.values.flatMap(_.values)
@@ -35,7 +37,7 @@ object ClientServerApi {
       "}",
       "",
       "object Api {",
-      Routes(api).mkString("\n"),
+      Routes(api, file).mkString("\n"),
       "",
       MapK(eps, streaming).mkString("\n"),
       "}"
@@ -68,10 +70,21 @@ object ClientServerApi {
   }
 
   private object Routes {
-    def apply(api: Api): List[String] = {
-      val names = api.endpoints.values.flatMap(_.values).map(_.name.get)
-      val endpoints = names.map(name => s"""val $name = RouteInfo("${api.version}", "$name")""")
-      val all = s"val _all: Set[RouteInfo] = Set(${names.mkString(", ")})"
+    def apply(api: Api, file: File): List[String] = {
+      val eps = api.endpoints.values.flatMap(_.values)
+      val cachedTags = scala.collection.mutable.Map[Set[String], String]()
+      val endpoints = eps.map { ep =>
+        val name = ep.name.get
+        val tags = ep.tags.map(t => s""""$t"""").toSet
+        val tagStr = cachedTags.get(tags) match {
+          case Some(tag) => s"$tag.tags"
+          case None =>
+            cachedTags.put(tags, name)
+            tags.mkString("Set(", ", ", ")")
+        }
+        s"""val $name = RouteInfo("${file.getName}", "$name", $tagStr)"""
+      }
+      val all = s"val _all: Set[RouteInfo] = Set(${eps.map(_.name.get).mkString(", ")})"
 
       endpoints.toList :+ all
     }.map("  " + _)

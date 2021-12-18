@@ -47,6 +47,7 @@ object FixIdents {
         val paramNames = new Renamer("param", true, snames.currentCtx)
         Endpoint(
           name = Some(opNames.fix(ep.name.getOrElse(""))),
+          tags = ep.tags,
           parameters = ep.parameters.map {
             case (Parameter.Path, p) => Parameter.Path -> p.copy(
               name = snames.find(p.name),
