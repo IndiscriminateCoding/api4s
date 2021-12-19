@@ -172,7 +172,7 @@ object Http4sServer {
         "    _request: Request[S],",
         "    _path: List[String],",
         "    _router: Router[S]",
-        "): S[Response[S]] = _path match {"
+        "  ): S[Response[S]] = _path match {"
       ),
       endpointList.map("    " + _),
       List(
