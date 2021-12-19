@@ -34,7 +34,7 @@ object Http4sServer {
         "cats.data.Validated.Valid[Media[F]](request)"
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
-        s"""Decode[List[${primitiveStr(t)}]](_fromData, "$rn")"""
+        s"""Decode[List[${primitiveStr(t)}]](_formData, "$rn")"""
       case (Parameter.InlinedBody(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
         s"""Decode[$ts](_formData, "$rn")"""
@@ -120,7 +120,7 @@ object Http4sServer {
         ).flatten
       case Consumes.FormData(_) =>
         List(
-          List(s"request.decode[http4s.UrlForm](_formData =>"),
+          List(s"request.decodeOrThrow[http4s.UrlForm](_formData =>"),
           apiValidated.map("  " + _),
           List(s")(F, http4s.UrlForm.entityDecoder[F])")
         ).flatten

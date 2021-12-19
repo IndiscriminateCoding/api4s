@@ -1,9 +1,10 @@
 package api4s.internal
 
-import cats.FlatMap
 import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
 import cats.effect.Concurrent
+import cats.implicits._
+import cats.{ FlatMap, MonadThrow }
 import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
@@ -12,7 +13,7 @@ import org.http4s.headers._
 
 object Helpers {
   implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
-    def pathSegments: Vector[String] = r.uri.path.segments.map(_.toString).filter(_.nonEmpty)
+    def pathSegments: Vector[String] = r.uri.path.segments.map(_.toString)
 
     def decodeValidatedOpt[A](
       f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
@@ -20,18 +21,24 @@ object Helpers {
       r.headers.get[`Content-Length`] match {
         case Some(l) if l.length == 0 => f(Valid(None))
         case _ => r.headers.get[`Content-Type`] match {
+          case Some(ct) if D.consumes.exists(ct.mediaType.satisfiedBy) =>
+            decodeValidated[A](x => f(x.map(Some(_))))
           case None => f(Valid(None))
-          case Some(_) => decodeValidated[A](x => f(x.map(Some(_))))
         }
       }
 
     def decodeValidated[A](
       f: ValidatedNec[Throwable, A] => F[Response[F]]
     )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
-      F.flatMap(D.decode(r, strict = true).value) {
+      D.decode(r, strict = true).value.flatMap {
         case Left(e) => f(Validated.invalidNec(e))
         case Right(x) => f(Valid(x))
       }
+
+    def decodeOrThrow[A](
+      f: A => F[Response[F]]
+    )(implicit F: MonadThrow[F], D: EntityDecoder[F, A]): F[Response[F]] =
+      D.decode(r, strict = true).rethrowT.flatMap(f)
   }
 
   private val printer = Printer.spaces2.copy(dropNullValues = true)

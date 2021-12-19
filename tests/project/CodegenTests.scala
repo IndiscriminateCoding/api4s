@@ -6,7 +6,8 @@ object CodegenTests {
   private val specs = List(
     ("twitter", "https://raw.githubusercontent.com/APIs-guru/openapi-directory/master/APIs/twitter.com/legacy/1.1/swagger.yaml", false),
     ("twilio", "https://pastebin.com/raw/FxB8BSF9", false),
-    ("instagram", "https://pastebin.com/raw/SDTguj2M", true)
+    ("instagram", "https://pastebin.com/raw/SDTguj2M", true),
+    ("petstore", "https://pastebin.com/raw/SMS3XCEm", true)
   )
 
   def download(file: File): Seq[(String, File, Boolean)] =
