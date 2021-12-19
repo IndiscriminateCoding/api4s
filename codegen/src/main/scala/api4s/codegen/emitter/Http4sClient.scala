@@ -176,7 +176,7 @@ object Http4sClient {
             s"(r => r.status match {"
         ),
         rs.map { case (s, t) => "  " + one(s, t) },
-        List("  case _ => _onError(_request, r)"),
+        List("  case _ => onError(_request, r)"),
         List("})")
       ).flatten
     }
@@ -226,7 +226,7 @@ object Http4sClient {
       "import api4s.internal.Helpers",
       "import api4s.outputs._",
       "import api4s.RouteInfo",
-      "import cats.effect.{ Async, Resource }",
+      "import cats.effect.{ Concurrent, Resource }",
       "import io.circe.Json",
       "import org.http4s.client.{ Client, UnexpectedStatus }",
       "import org.http4s.{ Media, Method, Request, Response, Status, Uri }",
@@ -238,12 +238,10 @@ object Http4sClient {
       "class Http4sClient[F[_]](",
       "  client: RouteInfo => Client[F],",
       "  scheme: Option[Uri.Scheme] = None,",
-      "  authority: Option[Uri.Authority] = None,",
-      "  onError: Option[(Request[F], Response[F]) => F[Throwable]] = None",
-      s")(implicit F: Async[F]) extends $api {",
-      "  private[this] def _onError[A](req: Request[F], res: Response[F]) = onError.fold[F[A]](",
+      "  authority: Option[Uri.Authority] = None",
+      s")(implicit F: Concurrent[F]) extends $api {",
+      "  protected def onError[A](req: Request[F], res: Response[F]): F[A] =",
       "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
-      "  )(f => F.flatMap(f(req, res))(F.raiseError))",
       "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>

@@ -179,7 +179,7 @@ object Http4sServer {
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.data.NonEmptyChain",
-        "import cats.effect.{ Async, Resource }",
+        "import cats.effect.{ Concurrent, Resource }",
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
@@ -187,7 +187,7 @@ object Http4sServer {
         "",
         s"import $pkg.Model._",
         "",
-        s"class Http4sServer[F[_]](api: $api)(implicit F: Async[F]) extends Endpoint[F] {",
+        s"class Http4sServer[F[_]](api: $api)(implicit F: Concurrent[F]) extends Endpoint[F] {",
         "  def apply(request: Request[F])(",
         "    Router: Router[F]",
         "  ): F[Response[F]] = request.pathSegments match {"

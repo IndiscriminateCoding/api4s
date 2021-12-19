@@ -3,7 +3,7 @@ package api4s.internal
 import cats.FlatMap
 import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
-import cats.effect.Async
+import cats.effect.Concurrent
 import fs2.Chunk
 import io.circe.{ Decoder, Encoder, Printer }
 import org.http4s._
@@ -39,7 +39,7 @@ object Helpers {
   def circeEntityEncoder[F[_], A : Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
 
-  def circeEntityDecoder[F[_] : Async, A : Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
+  def circeEntityDecoder[F[_] : Concurrent, A : Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
   def jsonResponse[F[_], A : Encoder](status: Status)(a: A): Response[F] =
     Response(status = status).withEntity(a)(circeEntityEncoder[F, A])

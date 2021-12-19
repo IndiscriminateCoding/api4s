@@ -18,9 +18,9 @@ object Reserved {
     "Map", "String", "Int", "Long", "Double", "Boolean", "Byte", "Some", "Option", "List",
     "Throwable", "Vector", "Set",
 
-    "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Sync", "CNil", "Resource",
-    "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl", "Inr",
-    "Uri", "Applicative", "Defer", "NonEmptyChain",
+    "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Concurrent", "CNil",
+    "Resource", "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl",
+    "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain",
 
     "F", "S", "Router", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors", "RouteInfo",
     "MapK",
