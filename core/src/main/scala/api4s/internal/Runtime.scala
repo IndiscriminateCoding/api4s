@@ -11,10 +11,8 @@ import org.http4s._
 import org.http4s.circe._
 import org.http4s.headers._
 
-object Helpers {
-  implicit class RichRequest[F[_]](val r: Request[F]) extends AnyVal {
-    def pathSegments: Vector[String] = r.uri.path.segments.map(_.toString)
-
+object Runtime {
+  implicit class RequestOps[F[_]](val r: Request[F]) extends AnyVal {
     def decodeValidatedOpt[A](
       f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
     )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
@@ -23,7 +21,7 @@ object Helpers {
         case _ => r.headers.get[`Content-Type`] match {
           case Some(ct) if D.consumes.exists(ct.mediaType.satisfiedBy) =>
             decodeValidated[A](x => f(x.map(Some(_))))
-          case None => f(Valid(None))
+          case _ => f(Valid(None))
         }
       }
 

@@ -11,7 +11,7 @@ object Reserved {
   )
 
   val reservedIdentifiers: Set[String] = Set(
-    "entity", "request", "api", "client", "http4s", "scheme", "authority", "onError"
+    "entity", "api", "client", "http4s", "scheme", "authority", "onError"
   )
 
   val importedSymbols: Set[String] = Set(
@@ -22,8 +22,8 @@ object Reserved {
     "Resource", "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl",
     "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain",
 
-    "F", "S", "Router", "Helpers", "RichRequest", "Endpoint", "Decode", "Errors", "RouteInfo",
-    "MapK",
+    "F", "S", "Router", "Runtime", "Endpoint", "Decode", "Errors", "RouteInfo", "MapK",
+    "LiftResponse",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media"
   ) ++ Registry.registry.map { case (_, (n, _)) => n }

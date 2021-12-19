@@ -100,7 +100,7 @@ object Http4sClient {
             ")"
           )
 
-        s"val _encoder = Helpers.circeEntityEncoder[F, ${typeStr(t)}]" :: hdrs
+        s"val _encoder = Runtime.circeEntityEncoder[F, ${typeStr(t)}]" :: hdrs
       case Consumes.FormData(flds) =>
         val (requiredFormData, optFormData) = flds.partition(_._2.required)
         val requiredFormParams = requiredFormData.map {
@@ -147,7 +147,7 @@ object Http4sClient {
     def runOn(rs: List[(String, Option[(MediaType, Type)])]): List[String] = {
       def decoder(mt: MediaType, t: Type): Option[String] = t match {
         case _ if MediaType.application.json.satisfiedBy(mt) =>
-          Some("Helpers.circeEntityDecoder")
+          Some("Runtime.circeEntityDecoder")
         case TString if MediaRange.`text/*`.satisfiedBy(mt) =>
           Some("http4s.EntityDecoder.text[F]")
         case _ => None
@@ -223,7 +223,7 @@ object Http4sClient {
     List(
       s"package $pkg",
       "",
-      "import api4s.internal.Helpers",
+      "import api4s.internal.Runtime",
       "import api4s.outputs._",
       "import api4s.RouteInfo",
       "import cats.effect.{ Concurrent, Resource }",

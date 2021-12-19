@@ -7,7 +7,7 @@ import org.http4s.{ MediaRange, MediaType }
 import scala.collection.immutable.ListMap
 
 object Http4sServer {
-  object utils extends Utils(S = "F")
+  object utils extends Utils
 
   import utils._
 
@@ -24,14 +24,14 @@ object Http4sServer {
         s"""Decode[${primitiveStr(t)}]($n, "$n")"""
       case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
-        s"""Decode[$ts](request.headers, "$rn")"""
+        s"""Decode[$ts](_request.headers, "$rn")"""
       case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
-        s"""Decode[List[${primitiveStr(t)}]](request.uri.query, "$rn")"""
+        s"""Decode[List[${primitiveStr(t)}]](_request.uri.query, "$rn")"""
       case (Parameter.Query(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
-        s"""Decode[$ts](request.uri.query, "$rn")"""
+        s"""Decode[$ts](_request.uri.query, "$rn")"""
       case (Parameter.Body(_), Parameter(_, TMedia, _)) =>
-        "cats.data.Validated.Valid[Media[F]](request)"
+        "cats.data.Validated.Valid[Media[S]](_request)"
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
         s"""Decode[List[${primitiveStr(t)}]](_formData, "$rn")"""
@@ -42,27 +42,23 @@ object Http4sServer {
     }
 
     def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
-      case None => s"Helpers.emptyResponse[F](Status.$c)"
+      case None => s"Runtime.emptyResponse[S](Status.$c)"
       case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
-        s"Helpers.jsonResponse[F, ${typeStr(t)}](Status.$c)"
+        s"Runtime.jsonResponse[S, ${typeStr(t)}](Status.$c)"
       case Some((mt, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
-        s"""Helpers.textResponse[F](Status.$c, "${sw.result}")"""
-      case Some(_) => s"Helpers.mediaResponse[F](Status.$c)"
+        s"""Runtime.textResponse[S](Status.$c, "${sw.result}")"""
+      case Some(_) => s"Runtime.mediaResponse[S](Status.$c)"
     }
 
+    val liftArgs = s"(_request.requestPrelude, Api.$name)"
     def apiMapper(on: String) = e.produces match {
-      case Produces.Untyped =>
-        List(
-          s"F.map($on.allocated) {",
-          "  case (x, r) => x.withBodyStream(x.body.onFinalize(r))",
-          "}"
-        )
+      case Produces.Untyped => List(s"_L.liftResource$liftArgs($on)")
       case Produces.One(c, t@None) =>
-        List(s"F.map($on)(_ => ${responseMapperStr(c, t)})")
+        List(s"S.map(_L.liftF$liftArgs($on))(_ => ${responseMapperStr(c, t)})")
       case Produces.One(c, t@Some(_)) =>
-        List(s"F.map($on)(${responseMapperStr(c, t)})")
+        List(s"S.map(_L.liftF$liftArgs($on))(${responseMapperStr(c, t)})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
           case ((c, t@None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
@@ -70,59 +66,41 @@ object Http4sServer {
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
         } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
-          List(s"F.map($on) {"),
+          List(s"S.map(_L.liftF$liftArgs($on)) {"),
           mapper.map("  " + _),
           List("}")
         ).flatten
     }
 
-    val callRouter =
-      if (e.orderedParameters.isEmpty)
-        List(
-          List(
-            "Router.response(",
-            s"  Api.$name,",
-          ),
-          apiMapper(s"api.$name").map("  " + _),
-          List(")")
-        ).flatten
-      else List(
-        List(
-          s"val _badRequest = (t: NonEmptyChain[Throwable]) =>",
-          s"  Router.badRequest(Api.$name, Errors(t))",
-          s"val _route = (x: ${producesLifted(e.produces)}) =>",
-          "  Router.response(",
-          s"    Api.$name,"
-        ),
-        apiMapper("x").map("    " + _),
-        List("  )"),
-      ).flatten
-
     val apiValidated =
-      if (e.orderedParameters.isEmpty) Nil
+      if (e.orderedParameters.isEmpty) apiMapper(s"api.$name")
       else
         List(
           List("_validatedMapN("),
           params.map(p => s"  $p,"),
           List(
             s"  api.$name",
-            ").fold(_badRequest, _route)"
-          )
+            ").fold[S[Response[S]]](",
+            "  t => S.raiseError(Errors(t)),",
+            "  x =>"
+          ),
+          apiMapper("x").map("    " + _),
+          List(")"),
         ).flatten
 
     val apiCallWithBody = e.requestBody.consumes match {
       case Consumes.JsonBody(n, t) =>
         val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"request.decodeValidated$opt[${typeStr(t)}]($n =>"),
+          List(s"_request.decodeValidated$opt[${typeStr(t)}]($n =>"),
           apiValidated.map("  " + _),
-          List(s")(F, Helpers.circeEntityDecoder[F, ${typeStr(t)}])")
+          List(s")(S, Runtime.circeEntityDecoder[S, ${typeStr(t)}])")
         ).flatten
       case Consumes.FormData(_) =>
         List(
-          List(s"request.decodeOrThrow[http4s.UrlForm](_formData =>"),
+          List(s"_request.decodeOrThrow[http4s.UrlForm](_formData =>"),
           apiValidated.map("  " + _),
-          List(s")(F, http4s.UrlForm.entityDecoder[F])")
+          List(s")(S, http4s.UrlForm.entityDecoder[S])")
         ).flatten
       case Consumes.Entity(_, _) => apiValidated
       case Consumes.Empty => apiValidated
@@ -130,7 +108,6 @@ object Http4sServer {
 
     List(
       List(s"case Method.${m.toString.toUpperCase} =>"),
-      callRouter.map("  " + _),
       apiCallWithBody.map("  " + _)
     ).flatten
   }
@@ -143,7 +120,7 @@ object Http4sServer {
         throw new Exception("Mixed segments are not supported in http4s-server")
     }.mkString(", ")
 
-    s"case Vector($items) =>"
+    s"case List($items) =>"
   }
 
   def apply(pkg: String, endpoints: ListMap[List[Segment], ListMap[Method, Endpoint]]): String = {
@@ -152,21 +129,22 @@ object Http4sServer {
         case (segments, _) => -segments.count(_.isInstanceOf[Segment.Static])
       }
       .flatMap { case (segment, methods) =>
-        val allowed = methods.keys.map(m => s"Method.${m.toString.toUpperCase}").mkString(", ")
+        val allowed = methods
+          .keys
+          .map(m => s"Method.${m.toString.toUpperCase}")
+          .mkString("Set(", ", ", ")")
         val methodList = methods
           .flatMap { case (m, e) => methodMatcher(m, e) }
-          .toList :+ s"case _ => Router.methodNotAllowed($allowed)"
+          .toList :+ s"case _ => _router.methodNotAllowed($allowed)"
 
         List(
-          List(segmentsMatcher(segment)),
-          List(s"  def _apply = request.method match {"),
-          methodList.map("    " + _),
-          List("  }"),
-          List("  _apply")
+          List(segmentsMatcher(segment) ++ " _request.method match {"),
+          methodList.map("  " + _),
+          List("}")
         ).flatten
       }
     val streaming = endpoints.values.exists(_.values.exists(needStreaming))
-    val api = if (streaming) "Api[F, F]" else "Api[F]"
+    val api = if (streaming) "Api[F, S]" else "Api[F]"
 
     List(
       List(
@@ -174,8 +152,8 @@ object Http4sServer {
         "",
         "import api4s._",
         "import api4s.Endpoint.Router",
-        "import api4s.internal.Helpers",
-        "import api4s.internal.Helpers.RichRequest",
+        "import api4s.internal.Runtime",
+        "import api4s.internal.Runtime.{ RequestOps => _RequestOps }",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.data.NonEmptyChain",
@@ -187,14 +165,18 @@ object Http4sServer {
         "",
         s"import $pkg.Model._",
         "",
-        s"class Http4sServer[F[_]](api: $api)(implicit F: Concurrent[F]) extends Endpoint[F] {",
-        "  def apply(request: Request[F])(",
-        "    Router: Router[F]",
-        "  ): F[Response[F]] = request.pathSegments match {"
+        "class Http4sServer[F[_], S[_]](",
+        s"  api: $api",
+        ")(implicit S: Concurrent[S], _L: LiftResponse[F, S]) extends Endpoint[S] {",
+        "  def apply(",
+        "    _request: Request[S],",
+        "    _path: List[String],",
+        "    _router: Router[S]",
+        "): S[Response[S]] = _path match {"
       ),
       endpointList.map("    " + _),
       List(
-        "    case _ => Router.notFound",
+        "    case _ => _router.notFound",
         "  }",
         "}"
       )
