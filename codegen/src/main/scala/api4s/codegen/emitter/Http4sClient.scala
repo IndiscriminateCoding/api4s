@@ -182,7 +182,7 @@ object Http4sClient {
     }
 
     val run = e.produces match {
-      case Produces.Untyped => List(s"client(Api.$name).run(_request)")
+      case Produces.Untyped => List(s"unliftResource(client(Api.$name).run(_request))")
       case Produces.One(status, t) => runOn(List(status -> t))
       case Produces.Many(rs) => runOn(rs.toList)
     }
@@ -242,6 +242,9 @@ object Http4sClient {
       s")(implicit F: Concurrent[F]) extends $api {",
       "  protected def onError[A](req: Request[F], res: Response[F]): F[A] =",
       "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
+      "",
+      "  protected def unliftResource(r: Resource[F, Response[F]]): F[Response[F]] =",
+      "    F.map(r.allocated) { case (r, f) => r.withBodyStream(r.body.onFinalize(f)) }",
       "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>

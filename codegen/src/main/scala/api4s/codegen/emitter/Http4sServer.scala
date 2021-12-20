@@ -54,11 +54,11 @@ object Http4sServer {
 
     val liftArgs = s"(_request.requestPrelude, Api.$name)"
     def apiMapper(on: String) = e.produces match {
-      case Produces.Untyped => List(s"_L.liftResource$liftArgs($on)")
+      case Produces.Untyped => List(s"_L.lift$liftArgs($on)")
       case Produces.One(c, t@None) =>
-        List(s"S.map(_L.liftF$liftArgs($on))(_ => ${responseMapperStr(c, t)})")
+        List(s"S.map(_L.lift$liftArgs($on))(_ => ${responseMapperStr(c, t)})")
       case Produces.One(c, t@Some(_)) =>
-        List(s"S.map(_L.liftF$liftArgs($on))(${responseMapperStr(c, t)})")
+        List(s"S.map(_L.lift$liftArgs($on))(${responseMapperStr(c, t)})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
           case ((c, t@None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
@@ -66,7 +66,7 @@ object Http4sServer {
             s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
         } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
-          List(s"S.map(_L.liftF$liftArgs($on)) {"),
+          List(s"S.map(_L.lift$liftArgs($on)) {"),
           mapper.map("  " + _),
           List("}")
         ).flatten
@@ -157,7 +157,7 @@ object Http4sServer {
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _validatedMapN }",
         "import cats.data.NonEmptyChain",
-        "import cats.effect.{ Concurrent, Resource }",
+        "import cats.effect.Concurrent",
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
@@ -167,7 +167,7 @@ object Http4sServer {
         "",
         "class Http4sServer[F[_], S[_]](",
         s"  api: $api",
-        ")(implicit S: Concurrent[S], _L: LiftResponse[F, S]) extends Endpoint[S] {",
+        ")(implicit S: Concurrent[S], _L: LiftRoute[F, S]) extends Endpoint[S] {",
         "  def apply(",
         "    _request: Request[S],",
         "    _path: List[String],",

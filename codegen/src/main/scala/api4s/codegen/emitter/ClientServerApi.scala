@@ -21,7 +21,6 @@ object ClientServerApi {
       "import api4s.outputs._",
       "import api4s.RouteInfo",
       "import cats.~>",
-      "import cats.effect.{ MonadCancel, Resource }",
       "import io.circe.Json",
       "import org.http4s.{ Media, Response }",
       "import org.http4s",
@@ -32,11 +31,10 @@ object ClientServerApi {
       s"trait ${declApi("F[_]", "S[_]")} {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
-      s"  final def mapK[G[_]](f: RouteInfo => F ~> G)(implicit F: MonadCancel[F, _]," +
-        s" G: MonadCancel[G, _]): ${declApi("G", "S")} = new Api.MapK(f, this)",
+      s"  final def mapK[G[_]](f: RouteInfo => F ~> G): ${declApi("G", "S")} =",
+      "    new Api.MapK(f, this)",
       "",
-      "  final def mapK[G[_]](f: F ~> G)(implicit F: MonadCancel[F, _], G: MonadCancel[G, _])" +
-        s": ${declApi("G", "S")} = mapK(_ => f)",
+      s"  final def mapK[G[_]](f: F ~> G): ${declApi("G", "S")} = mapK(_ => f)",
       "}",
       "",
       "object Api {",
@@ -57,10 +55,7 @@ object ClientServerApi {
         case ps => s"(${ps.mkString(", ")})"
       }
 
-      " = " + (e.produces match {
-        case Produces.Untyped => s"this.api.$name$params.mapK(this.f(Api.$name))"
-        case _ => s"this.f(Api.$name)(this.api.$name$params)"
-      })
+      s" = this.f(Api.$name)(this.api.$name$params)"
     }
 
     def apply(eps: Iterable[Endpoint], streaming: Boolean): List[String] = List(
@@ -68,8 +63,7 @@ object ClientServerApi {
         s"private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
         "  f: RouteInfo => F ~> G,",
         s"  api: Api[F${if (streaming) ", S" else ""}]",
-        ")(implicit F: MonadCancel[F, _], G: MonadCancel[G, _]) extends " +
-          s"Api[G${if (streaming) ", S" else ""}] {"
+        s") extends Api[G${if (streaming) ", S" else ""}] {"
       ),
       eps.map(e => "  " + utils(e) + map(e)),
       List("}")

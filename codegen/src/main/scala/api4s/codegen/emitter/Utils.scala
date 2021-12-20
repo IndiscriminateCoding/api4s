@@ -10,7 +10,7 @@ object Utils {
 
 class Utils(F: String = "F", S: String = "S") {
   def producesPlain(p: Produces): String = p match {
-    case Produces.Untyped => s"Resource[$F, Response[$S]]"
+    case Produces.Untyped => s"Response[$S]"
     case Produces.One(_, content) => typeStr(content.map(_._2))
     case Produces.Many(rs) => s"${
       rs.map {
@@ -20,10 +20,7 @@ class Utils(F: String = "F", S: String = "S") {
     } :+: CNil"
   }
 
-  def producesLifted(p: Produces): String = p match {
-    case Produces.Untyped => producesPlain(p)
-    case _ => s"$F[${producesPlain(p)}]"
-  }
+  def producesLifted(p: Produces): String = s"$F[${producesPlain(p)}]"
 
   def shapelessPat(i: Int, v: String): String =
     if (i == 0) s"Inl($v)"
