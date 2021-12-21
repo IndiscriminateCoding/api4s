@@ -144,16 +144,16 @@ object Http4sClient {
       case Consumes.FormData(_) => List("body = _entity.body,")
     }
 
-    def runOn(rs: List[(String, Option[(MediaType, Type)])]): List[String] = {
-      def decoder(mt: MediaType, t: Type): Option[String] = t match {
-        case _ if MediaType.application.json.satisfiedBy(mt) => Some(s"jsonDecode[${typeStr(t)}]")
-        case TString if MediaRange.`text/*`.satisfiedBy(mt) =>
+    def runOn(rs: List[(String, Option[(MediaRange, Type)])]): List[String] = {
+      def decoder(mr: MediaRange, t: Type): Option[String] = t match {
+        case _ if MediaType.application.json.satisfiedBy(mr) => Some(s"jsonDecode[${typeStr(t)}]")
+        case TString if MediaRange.`text/*`.satisfiedBy(mr) =>
           Some("http4s.EntityDecoder.text[F]")
         case _ => None
       }
 
-      def one(s: String, t: Option[(MediaType, Type)]): List[String] = t match {
-        case Some((mt, tp)) => decoder(mt, tp) match {
+      def one(s: String, t: Option[(MediaRange, Type)]): List[String] = t match {
+        case Some((mr, tp)) => decoder(mr, tp) match {
           case None if rs.length == 1 =>
             List(
               s"case Status.$s => F.map(r.as(F, http4s.EntityDecoder.binary))(x => ",

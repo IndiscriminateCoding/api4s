@@ -107,7 +107,6 @@ case class Endpoint(
 
     def haveDefault(p: Parameter): Boolean = p match {
       case Parameter(_, _, false) => true
-      case Parameter(_, Type.TMedia, _) => true
       case Parameter(_, Type.TArr(_), _) => true
       case _ => false
     }
@@ -135,14 +134,9 @@ case class Endpoint(
       case _ if responses.contains(None) => Untyped
       case _ if !typed =>
         responses.toList match {
-          case (Some(s), rs) :: Nil =>
+          case (Some(s), _) :: Nil =>
             registry.get(s).map {
-              case (s, _) =>
-                val mt = rs.toList match {
-                  case (x: MediaType, _) :: t if t.forall(_._1 == x) => x
-                  case _ => MediaType.application.`octet-stream`
-                }
-                One(s, Some(mt -> Type.TMedia))
+              case (s, _) => One(s, Some(MediaRange.`*/*` -> Type.TMedia))
             }.getOrElse(Untyped)
           case _ => Untyped
         }

@@ -28,6 +28,8 @@ lazy val tests = (project in file("."))
     api4sSources :=
       CodegenTests.download((Compile / sourceManaged).value) flatMap { case (n, f, s) =>
         val src = Api4s.Src(f, n, server = s)
-        List(src, src.copy(pkg = "noerr." ++ n).without4xx.without5xx)
+        val noErr = src.copy(pkg = "noerr." ++ src.pkg).without4xx.without5xx
+        val noDef = noErr.copy(pkg = "nodef." ++ src.pkg).withoutDefault
+        List(src, noErr, noDef)
       }
   )

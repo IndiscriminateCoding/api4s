@@ -43,11 +43,11 @@ object Http4sServer {
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 
-    def responseMapperStr(c: String, t: Option[(MediaType, Type)]): String = t match {
+    def responseMapperStr(c: String, t: Option[(MediaRange, Type)]): String = t match {
       case None => s"Runtime.emptyResponse[S](Status.$c)"
-      case Some((mt, t)) if MediaType.application.json.satisfiedBy(mt) =>
+      case Some((mr, t)) if MediaType.application.json.satisfiedBy(mr) =>
         s"Runtime.jsonResponse[S, ${typeStr(t)}](Status.$c)"
-      case Some((mt, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
+      case Some((mt: MediaType, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
         val sw = new StringWriter()
         MediaType.http4sHttpCodecForMediaType.render(sw, mt)
         s"""Runtime.textResponse[S](Status.$c, "${sw.result}")"""
