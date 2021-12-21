@@ -76,7 +76,7 @@ object Http4sServer {
       if (e.orderedParameters.isEmpty) apiMapper(s"api.$name")
       else
         List(
-          List("_validatedMapN("),
+          List("_mapN("),
           params.map(p => s"  $p,"),
           List(
             s"  api.$name",
@@ -155,7 +155,7 @@ object Http4sServer {
         "import api4s.internal.Runtime",
         "import api4s.internal.Runtime.{ RequestOps => _RequestOps }",
         "import api4s.outputs._",
-        "import api4s.utils.validated.{ MapN => _validatedMapN }",
+        "import api4s.utils.validated.{ MapN => _mapN }",
         "import cats.data.NonEmptyChain",
         "import cats.effect.Concurrent",
         "import io.circe.Json",
