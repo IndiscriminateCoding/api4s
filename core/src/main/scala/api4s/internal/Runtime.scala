@@ -39,7 +39,7 @@ object Runtime {
       D.decode(r, strict = true).rethrowT.flatMap(f)
   }
 
-  private val printer = Printer.spaces2.copy(dropNullValues = true)
+  val printer: Printer = Printer.spaces2.copy(dropNullValues = true)
 
   def circeEntityEncoder[F[_], A : Encoder]: EntityEncoder[F, A] =
     jsonEncoderWithPrinterOf[F, A](printer)
@@ -59,7 +59,7 @@ object Runtime {
     Response(status = status).withEntity(text)(encoder)
   }
 
-  def mediaResponse[F[_]](status: Status)(media: Media[F]): Response[F] = Response(
+  def mediaResponse[F[_]](status: Status)(media: Media[fs2.Pure]): Response[F] = Response(
     status = status,
     headers = media.headers,
     body = media.body

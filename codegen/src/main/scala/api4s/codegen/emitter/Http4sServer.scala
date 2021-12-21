@@ -30,8 +30,10 @@ object Http4sServer {
       case (Parameter.Query(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
         s"""Decode[$ts](_request.uri.query, "$rn")"""
-      case (Parameter.Body(_), Parameter(_, TMedia, _)) =>
-        "cats.data.Validated.Valid[Media[S]](_request)"
+      case (Parameter.Body(_), Parameter(n, TMedia, true)) =>
+        s"$n.map($n => Media[Pure]($n, _request.headers))"
+      case (Parameter.Body(_), Parameter(n, TMedia, false)) =>
+        s"$n.map($n => $n.map($n => Media[Pure]($n, _request.headers)))"
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
         s"""Decode[List[${primitiveStr(t)}]](_formData, "$rn")"""
@@ -54,7 +56,7 @@ object Http4sServer {
 
     val liftArgs = s"(_request.requestPrelude, Api.$name)"
     def apiMapper(on: String) = e.produces match {
-      case Produces.Untyped => List(s"_L.lift$liftArgs($on)")
+      case Produces.Untyped => List(s"S.map(_L.lift$liftArgs($on))(_.covary[S])")
       case Produces.One(c, t@None) =>
         List(s"S.map(_L.lift$liftArgs($on))(_ => ${responseMapperStr(c, t)})")
       case Produces.One(c, t@Some(_)) =>
@@ -96,13 +98,19 @@ object Http4sServer {
           apiValidated.map("  " + _),
           List(s")(S, Runtime.circeEntityDecoder[S, ${typeStr(t)}])")
         ).flatten
+      case Consumes.Entity(n, _) =>
+        val opt = if (e.requestBody.required) "" else "Opt"
+        List(
+          List(s"_request.decodeValidated$opt[fs2.Stream[Pure, Byte]]($n =>"),
+          apiValidated.map("  " + _),
+          List(s")(S, http4s.EntityDecoder.binary[S].map(fs2.Stream.chunk[Pure, Byte]))")
+        ).flatten
       case Consumes.FormData(_) =>
         List(
           List(s"_request.decodeOrThrow[http4s.UrlForm](_formData =>"),
           apiValidated.map("  " + _),
           List(s")(S, http4s.UrlForm.entityDecoder[S])")
         ).flatten
-      case Consumes.Entity(_, _) => apiValidated
       case Consumes.Empty => apiValidated
     }
 
@@ -143,8 +151,6 @@ object Http4sServer {
           List("}")
         ).flatten
       }
-    val streaming = endpoints.values.exists(_.values.exists(needStreaming))
-    val api = if (streaming) "Api[F, S]" else "Api[F]"
 
     List(
       List(
@@ -158,6 +164,7 @@ object Http4sServer {
         "import api4s.utils.validated.{ MapN => _mapN }",
         "import cats.data.NonEmptyChain",
         "import cats.effect.Concurrent",
+        "import fs2.Pure",
         "import io.circe.Json",
         "import org.http4s.{ Media, Method, Request, Response, Status }",
         "import org.http4s",
@@ -166,7 +173,7 @@ object Http4sServer {
         s"import $pkg.Model._",
         "",
         "class Http4sServer[F[_], S[_]](",
-        s"  api: $api",
+        "  api: Api[F]",
         ")(implicit S: Concurrent[S], _L: LiftRoute[F, S]) extends Endpoint[S] {",
         "  def apply(",
         "    _request: Request[S],",

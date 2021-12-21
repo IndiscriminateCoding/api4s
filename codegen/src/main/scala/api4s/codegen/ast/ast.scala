@@ -73,6 +73,7 @@ case class Endpoint(
   parameters: List[(Parameter.Kind, Parameter)],
   responses: SortedMap[Option[Int], ListMap[MediaRange, Response]]
 ) {
+
   import api4s.codegen.utils.Registry.registry
 
   responses foreach {
@@ -97,9 +98,9 @@ case class Endpoint(
       }
     })
     val setRequired = all map {
-      case (k @ Parameter.Query(_), Parameter(n, t @ Type.TArr(_), false)) =>
+      case (k@Parameter.Query(_), Parameter(n, t@Type.TArr(_), false)) =>
         k -> Parameter(n, t, true)
-      case (k @ Parameter.Body(_), Parameter(n, t @ Type.TMedia, false)) =>
+      case (k@Parameter.Body(_), Parameter(n, t@Type.TMedia, false)) =>
         k -> Parameter(n, t, true)
       case p => p
     }
@@ -132,7 +133,19 @@ case class Endpoint(
 
     () match {
       case _ if responses.contains(None) => Untyped
-      case _ if !typed => Untyped
+      case _ if !typed =>
+        responses.toList match {
+          case (Some(s), rs) :: Nil =>
+            registry.get(s).map {
+              case (s, _) =>
+                val mt = rs.toList match {
+                  case (x: MediaType, _) :: t if t.forall(_._1 == x) => x
+                  case _ => MediaType.application.`octet-stream`
+                }
+                One(s, Some(mt -> Type.TMedia))
+            }.getOrElse(Untyped)
+          case _ => Untyped
+        }
       case _ =>
         val filtered = responses.filter(_._1.exists(registry.contains))
         if (filtered.size > 1)
@@ -152,6 +165,7 @@ case class RequestBody(
   ranges: ListMap[MediaRange, Type],
   required: Boolean
 ) {
+
   import Consumes._
   import api4s.codegen.ast.Type.TObj
 
@@ -167,7 +181,7 @@ case class RequestBody(
       FormData(flds.toList)
     case (mt: MediaType, _) :: Nil =>
       Entity(name.getOrElse(s"${mt.mainType}/${mt.subType}"), Some(mt))
-    case _ => Entity(name.getOrElse("entity"), None)
+    case _ => Entity(name.getOrElse("media"), None)
   }
 }
 

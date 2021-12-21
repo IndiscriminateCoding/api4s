@@ -11,7 +11,7 @@ object Reserved {
   )
 
   val reservedIdentifiers: Set[String] = Set(
-    "entity", "api", "client", "http4s", "scheme", "authority", "onError", "unliftResource"
+    "media", "api", "client", "http4s", "scheme", "authority", "onError", "jsonEncode", "jsonDecode"
   )
 
   val importedSymbols: Set[String] = Set(
@@ -20,7 +20,7 @@ object Reserved {
 
     "Json", "Encoder", "Decoder", "Request", "Response", "Status", "Concurrent", "CNil",
     "Resource", "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl",
-    "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain",
+    "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain", "Pure",
 
     "F", "S", "Router", "Runtime", "Endpoint", "Decode", "Errors", "RouteInfo", "MapK",
     "LiftRoute",

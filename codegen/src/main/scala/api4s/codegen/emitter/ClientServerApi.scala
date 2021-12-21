@@ -12,8 +12,6 @@ object ClientServerApi {
     import default._
 
     val eps = api.endpoints.values.flatMap(_.values)
-    val streaming = eps.exists(utils.needStreaming)
-    def declApi(f: String, s: String): String = if (streaming) s"Api[$f, $s]" else s"Api[$f]"
 
     List(
       s"package $pkg",
@@ -21,6 +19,7 @@ object ClientServerApi {
       "import api4s.outputs._",
       "import api4s.RouteInfo",
       "import cats.~>",
+      "import fs2.Pure",
       "import io.circe.Json",
       "import org.http4s.{ Media, Response }",
       "import org.http4s",
@@ -28,19 +27,18 @@ object ClientServerApi {
       "",
       s"import $pkg.Model._",
       "",
-      s"trait ${declApi("F[_]", "S[_]")} {",
+      s"trait Api[F[_]] {",
       eps.map(e => "  " + withDefaults(e)).mkString("\n"),
       "",
-      s"  final def mapK[G[_]](f: RouteInfo => F ~> G): ${declApi("G", "S")} =",
-      "    new Api.MapK(f, this)",
+      s"  final def mapK[G[_]](f: RouteInfo => F ~> G): Api[G] = new Api.MapK(f, this)",
       "",
-      s"  final def mapK[G[_]](f: F ~> G): ${declApi("G", "S")} = mapK(_ => f)",
+      s"  final def mapK[G[_]](f: F ~> G): Api[G] = mapK(_ => f)",
       "}",
       "",
       "object Api {",
       Routes(api, file).mkString("\n"),
       "",
-      MapK(eps, streaming).mkString("\n"),
+      MapK(eps).mkString("\n"),
       "}"
     ).mkString("\n")
   }
@@ -58,12 +56,12 @@ object ClientServerApi {
       s" = this.f(Api.$name)(this.api.$name$params)"
     }
 
-    def apply(eps: Iterable[Endpoint], streaming: Boolean): List[String] = List(
+    def apply(eps: Iterable[Endpoint]): List[String] = List(
       List(
-        s"private class MapK[F[_], G[_]${if (streaming) ", S[_]" else ""}](",
+        "private class MapK[F[_], G[_]](",
         "  f: RouteInfo => F ~> G,",
-        s"  api: Api[F${if (streaming) ", S" else ""}]",
-        s") extends Api[G${if (streaming) ", S" else ""}] {"
+        "  api: Api[F]",
+        ") extends Api[G] {"
       ),
       eps.map(e => "  " + utils(e) + map(e)),
       List("}")
@@ -92,8 +90,8 @@ object ClientServerApi {
   }
 }
 
-class ClientServerApi(F: String = "F", S: String = "S") {
-  object utils extends Utils(F, S)
+class ClientServerApi(F: String = "F") {
+  object utils extends Utils(F)
 
   import utils._
 
@@ -103,8 +101,6 @@ class ClientServerApi(F: String = "F", S: String = "S") {
   }
 
   private def convertParamDefault(p: Parameter): String = p match {
-    case Parameter(n, t@TMedia, true) =>
-      s"$n: ${typeStr(t)} = Media(http4s.EmptyBody, http4s.Headers.empty)"
     case Parameter(n, t@TArr(_), true) => s"$n: ${typeStr(t)} = Nil"
     case Parameter(n, t, true) => s"$n: ${typeStr(t)}"
     case Parameter(n, t, false) => s"$n: Option[${typeStr(t)}] = None"

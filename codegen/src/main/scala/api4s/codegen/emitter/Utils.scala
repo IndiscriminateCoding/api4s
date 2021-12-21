@@ -8,9 +8,9 @@ object Utils {
   object default extends Utils()
 }
 
-class Utils(F: String = "F", S: String = "S") {
+class Utils(F: String = "F") {
   def producesPlain(p: Produces): String = p match {
-    case Produces.Untyped => s"Response[$S]"
+    case Produces.Untyped => s"Response[Pure]"
     case Produces.One(_, content) => typeStr(content.map(_._2))
     case Produces.Many(rs) => s"${
       rs.map {
@@ -41,7 +41,7 @@ class Utils(F: String = "F", S: String = "S") {
     case TDouble => "Double"
     case TString => "String"
     case TBool => "Boolean"
-    case TMedia => s"Media[$S]"
+    case TMedia => s"Media[Pure]"
     case TObj(flds) =>
       val types = flds.values.map(_.t).toSet
       val fldType =
@@ -53,23 +53,4 @@ class Utils(F: String = "F", S: String = "S") {
   val primitive: Set[Type] = Set(TString, TInt, TLong, TFloat, TDouble, TBool)
 
   def typeStr(t: Option[Type]): String = t.fold("Unit")(typeStr)
-
-  def needStreaming(t: Type): Boolean = t match {
-    case TMap(et) => needStreaming(et)
-    case TArr(it) => needStreaming(it)
-    case TObj(flds) => flds.values.exists(f => needStreaming(f.t))
-    case TMedia => true
-    case _ => false
-  }
-
-  def needStreaming(p: Produces): Boolean = p match {
-    case Produces.Untyped => true
-    case Produces.One(_, content) => content.exists { case (_, t) => needStreaming(t) }
-    case Produces.Many(rs) => rs.values.exists(_.exists { case (_, t) => needStreaming(t) })
-  }
-
-  def needStreaming(e: Endpoint): Boolean =
-    e.requestBody.ranges.values.exists(needStreaming) ||
-      e.parameters.exists { case (_, p) => needStreaming(p.t) } ||
-      needStreaming(e.produces)
 }
