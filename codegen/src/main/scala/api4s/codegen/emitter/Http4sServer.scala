@@ -21,25 +21,25 @@ object Http4sServer {
 
     val params = e.orderedParameters.map {
       case (Parameter.Path, Parameter(n, t, true)) =>
-        s"""Decode[${primitiveStr(t)}]($n, "$n")"""
+        s"""Decode[${primitiveStr(t)}].apply($n, "$n")"""
       case (Parameter.Hdr(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
-        s"""Decode[$ts](_request.headers, "$rn")"""
+        s"""Decode[$ts].apply(_request.headers, "$rn")"""
       case (Parameter.Query(rn), Parameter(_, TArr(t), _)) =>
-        s"""Decode[List[${primitiveStr(t)}]](_request.uri.query, "$rn")"""
+        s"""Decode[List[${primitiveStr(t)}]].apply(_request.uri.query, "$rn")"""
       case (Parameter.Query(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
-        s"""Decode[$ts](_request.uri.query, "$rn")"""
+        s"""Decode[$ts].apply(_request.uri.query, "$rn")"""
       case (Parameter.Body(_), Parameter(n, TMedia, true)) =>
         s"$n.map($n => Media[Pure]($n, _request.headers))"
       case (Parameter.Body(_), Parameter(n, TMedia, false)) =>
         s"$n.map($n => $n.map($n => Media[Pure]($n, _request.headers)))"
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
-        s"""Decode[List[${primitiveStr(t)}]](_formData, "$rn")"""
+        s"""Decode[List[${primitiveStr(t)}]].apply(_formData, "$rn")"""
       case (Parameter.InlinedBody(rn), Parameter(_, t, req)) =>
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
-        s"""Decode[$ts](_formData, "$rn")"""
+        s"""Decode[$ts].apply(_formData, "$rn")"""
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 

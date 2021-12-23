@@ -8,140 +8,103 @@ import org.typelevel.ci.CIString
 
 import scala.util.control.NonFatal
 
-trait Decode[-I, +A] {
-  def apply(in: I, name: String): ValidatedNec[Throwable, A]
+trait Decode[+A] { self =>
+  def apply(in: String, name: String): ValidatedNec[Throwable, A]
+  def apply(in: UrlForm, name: String): ValidatedNec[Throwable, A]
+  def apply(in: Query, name: String): ValidatedNec[Throwable, A]
+  def apply(in: Headers, name: String): ValidatedNec[Throwable, A]
 
-  final def contramap[B](f: B => I): Decode[B, A] = (in, name) => apply(f(in), name)
-
-  final def map[B](f: A => B): Decode[I, B] = (in, name) => apply(in, name).map(f)
+  final def map[B](f: A => B): Decode[B] = new Decode[B] {
+    def apply(in: String, name: String): ValidatedNec[Throwable, B] = self(in, name).map(f)
+    def apply(in: UrlForm, name: String): ValidatedNec[Throwable, B] = self(in, name).map(f)
+    def apply(in: Query, name: String): ValidatedNec[Throwable, B] = self(in, name).map(f)
+    def apply(in: Headers, name: String): ValidatedNec[Throwable, B] = self(in, name).map(f)
+  }
 }
 
 object Decode {
-  def apply[A]: DecodePartiallyApplied[A] = new DecodePartiallyApplied[A]
+  def apply[A](implicit decode: Decode[A]): Decode[A] = decode
 
-  class DecodePartiallyApplied[A](private val _unused: Unit = ()) extends AnyVal {
-    def apply[In](in: In, name: String)(
-      implicit
-      decode: Decode[In, A]
-    ): ValidatedNec[Throwable, A] = decode(in, name)
-  }
+  implicit def decodeAtLeastOne[A](implicit decode: Decode[List[A]]): Decode[A] =
+    new Decode[A] {
+      private[this] def atLeastOne(
+        where: String,
+        name: String
+      )(x: ValidatedNec[Throwable, List[A]]): ValidatedNec[Throwable, A] = x.fold(Invalid(_), {
+        case x :: _ => Valid(x)
+        case Nil =>
+          Validated.invalidNec(ParseFailure(s"$where parameter (name=$name) not found", ""))
+      })
 
-  final class Location[T](val get: String) extends AnyVal {
-    override def toString: String = get
-  }
-  object Location {
-    implicit val urlFormLocation: Location[UrlForm] = new Location("form")
-    implicit val queryLocation: Location[Query] = new Location("query")
-    implicit val headerLocation: Location[Headers] = new Location("header")
-  }
+      def apply(in: String, name: String): ValidatedNec[Throwable, A] =
+        atLeastOne("path", name)(decode(in, name))
+      def apply(in: UrlForm, name: String): ValidatedNec[Throwable, A] =
+        atLeastOne("form", name)(decode(in, name))
+      def apply(in: Query, name: String): ValidatedNec[Throwable, A] =
+        atLeastOne("query", name)(decode(in, name))
+      def apply(in: Headers, name: String): ValidatedNec[Throwable, A] =
+        atLeastOne("headers", name)(decode(in, name))
+    }
 
-  implicit def decodeAtLeastOne[I, A](
-    implicit
-    D: Decode[I, List[A]],
-    L: Location[I]
-  ): Decode[I, A] = (in, name) => D(in, name).fold(Invalid(_), {
-    case x :: _ => Valid(x)
-    case Nil => Validated.invalidNec(ParseFailure(s"$L parameter (name=$name) not found", ""))
-  })
+  implicit def decodeOption[A](implicit decode: Decode[List[A]]): Decode[Option[A]] =
+    decode.map(_.headOption)
 
-  implicit def decodeOption[I, A](implicit D: Decode[I, List[A]]): Decode[I, Option[A]] =
-    D.map(_.headOption)
+  implicit val decodeListString: Decode[List[String]] = fromCasts(
+    Uri.decode(_),
+    identity,
+    identity,
+    identity
+  )("string")
 
-  implicit val decodeStringFromPath: Decode[String, String] =
-    decodePathFromCast(Uri.decode(_), "String")
-  implicit val decodeListStringFromUrlForm: Decode[UrlForm, List[String]] =
-    decodeListFromUrlForm(identity, "String")
-  implicit val decodeListStringFromQuery: Decode[Query, List[String]] =
-    decodeListFromQuery(identity, "String")
-  implicit val decodeListStringFromHeaders: Decode[Headers, List[String]] =
-    decodeListFromHeaders(identity, "String")
+  implicit val decodeListInt: Decode[List[Int]] = fromCast(_.toInt)("int")
 
-  implicit val decodeIntFromPath: Decode[String, Int] =
-    decodePathFromCast(_.toInt, "Int")
-  implicit val decodeListIntFromUrlForm: Decode[UrlForm, List[Int]] =
-    decodeListFromUrlForm(_.toInt, "Int")
-  implicit val decodeListIntFromQuery: Decode[Query, List[Int]] =
-    decodeListFromQuery(_.toInt, "Int")
-  implicit val decodeListIntFromHeaders: Decode[Headers, List[Int]] =
-    decodeListFromHeaders(_.toInt, "Int")
+  implicit val decodeListLong: Decode[List[Long]] = fromCast(_.toLong)("long")
 
-  implicit val decodeLongFromPath: Decode[String, Long] =
-    decodePathFromCast(_.toLong, "Long")
-  implicit val decodeListLongFromUrlForm: Decode[UrlForm, List[Long]] =
-    decodeListFromUrlForm(_.toLong, "Long")
-  implicit val decodeListLongFromQuery: Decode[Query, List[Long]] =
-    decodeListFromQuery(_.toLong, "Long")
-  implicit val decodeListLongFromHeaders: Decode[Headers, List[Long]] =
-    decodeListFromHeaders(_.toLong, "Long")
+  implicit val decodeListFloat: Decode[List[Float]] = fromCast(_.toFloat)("float")
 
-  implicit val decodeFloatFromPath: Decode[String, Float] =
-    decodePathFromCast(_.toFloat, "Float")
-  implicit val decodeListFloatFromUrlForm: Decode[UrlForm, List[Float]] =
-    decodeListFromUrlForm(_.toFloat, "Float")
-  implicit val decodeListFloatFromQuery: Decode[Query, List[Float]] =
-    decodeListFromQuery(_.toFloat, "Float")
-  implicit val decodeListFloatFromHeaders: Decode[Headers, List[Float]] =
-    decodeListFromHeaders(_.toFloat, "Float")
+  implicit val decodeListDouble: Decode[List[Double]] = fromCast(_.toDouble)("double")
 
-  implicit val decodeDoubleFromPath: Decode[String, Double] =
-    decodePathFromCast(_.toDouble, "Double")
-  implicit val decodeListDoubleFromUrlForm: Decode[UrlForm, List[Double]] =
-    decodeListFromUrlForm(_.toDouble, "Double")
-  implicit val decodeListDoubleFromQuery: Decode[Query, List[Double]] =
-    decodeListFromQuery(_.toDouble, "Double")
-  implicit val decodeListDoubleFromHeaders: Decode[Headers, List[Double]] =
-    decodeListFromHeaders(_.toDouble, "Double")
+  implicit val decodeListBoolean: Decode[List[Boolean]] = fromCast(_.toBoolean)("boolean")
 
-  implicit val decodeBooleanFromPath: Decode[String, Boolean] =
-    decodePathFromCast(_.toBoolean, "Boolean")
-  implicit val decodeListBooleanFromUrlForm: Decode[UrlForm, List[Boolean]] =
-    decodeListFromUrlForm(_.toBoolean, "Boolean")
-  implicit val decodeListBooleanFromQuery: Decode[Query, List[Boolean]] =
-    decodeListFromQuery(_.toBoolean, "Boolean")
-  implicit val decodeListBooleanFromHeaders: Decode[Headers, List[Boolean]] =
-    decodeListFromHeaders(_.toBoolean, "Boolean")
+  def fromCast[A](cast: String => A)(typeName: String): Decode[List[A]] =
+    fromCasts(cast, cast, cast, cast)(typeName)
 
-  def decodePathFromCast[A](cast: String => A, typeName: String): Decode[String, A] =
-    (in, name) =>
-      try Valid(cast(in))
+  def fromCasts[A](
+    path: String => A,
+    form: String => A,
+    query: String => A,
+    headers: String => A
+  )(typeName: String): Decode[List[A]] = new Decode[List[A]] {
+    import cats.implicits._
+
+    private[this] def tryCast(
+      where: String,
+      name: String
+    )(cast: => A): ValidatedNec[Throwable, A] =
+      try Valid(cast)
       catch {
         case NonFatal(_) => Validated.invalidNec(ParseFailure(
-          sanitized = s"can't convert path parameter (name=$name) to $typeName",
-          details = s"value=${Json.fromString(in)}"
+          sanitized = s"can't convert $where parameter (name=$name) to $typeName",
+          details = s"value=${Json.fromString(name)}"
         ))
       }
 
-  def decodeListFromCastAndGet[I, A](
-    cast: String => A,
-    typeName: String,
-    get: (I, String) => List[String]
-  )(implicit L: Location[I]): Decode[I, List[A]] = (in, name) => {
-    import cats.instances.list._
-    import cats.syntax.traverse._
+    def apply(in: String, name: String): ValidatedNec[Throwable, List[A]] =
+      tryCast("path", name)(path(in)).map(_ :: Nil)
 
-    get(in, name).traverse(s =>
-      try Valid(cast(s))
-      catch {
-        case NonFatal(_) => Validated.invalidNec(ParseFailure(
-          sanitized = s"can't convert $L parameter (name=$name) to $typeName",
-          details = s"value=${Json.fromString(s)}"
-        ))
-      }
-    )
+    def apply(in: UrlForm, name: String): ValidatedNec[Throwable, List[A]] =
+      in.get(name).traverse(x => tryCast("form", name)(form(x))).map(_.toList)
+
+    def apply(in: Query, name: String): ValidatedNec[Throwable, List[A]] =
+      in.pairs.foldLeft[List[String]](Nil) {
+        case (acc, (n, Some(v))) if n == name => v :: acc
+        case (acc, _) => acc
+      }.traverse(x => tryCast("query", name)(query(x)))
+
+    def apply(in: Headers, name: String): ValidatedNec[Throwable, List[A]] =
+      in.headers.foldLeft[List[String]](Nil) {
+        case (acc, h) if h.name == CIString(name) => h.value :: acc
+        case (acc, _) => acc
+      }.traverse(x => tryCast("headers", name)(headers(x)))
   }
-
-  def decodeListFromUrlForm[A](cast: String => A, typeName: String): Decode[UrlForm, List[A]] =
-    decodeListFromCastAndGet(cast, typeName, (f, n) => f.get(n).toList)
-
-  def decodeListFromQuery[A](cast: String => A, typeName: String): Decode[Query, List[A]] =
-    decodeListFromCastAndGet(cast, typeName, (f, n) => f.pairs.foldLeft[List[String]](Nil) {
-      case (acc, (name, Some(v))) if name == n => v :: acc
-      case (acc, _) => acc
-    })
-
-  def decodeListFromHeaders[A](cast: String => A, typeName: String): Decode[Headers, List[A]] =
-    decodeListFromCastAndGet(cast, typeName, (f, n) => f.headers.foldLeft[List[String]](Nil) {
-      case (acc, h) if h.name == CIString(n) => h.value :: acc
-      case (acc, _) => acc
-    })
 }
