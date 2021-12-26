@@ -100,7 +100,7 @@ object Http4sClient {
             ")"
           )
 
-        s"val _encoder = jsonEncode[${typeStr(t)}]" :: hdrs
+        s"val _encoder = jsonEncoder[${typeStr(t)}]" :: hdrs
       case Consumes.FormData(flds) =>
         val (requiredFormData, optFormData) = flds.partition(_._2.required)
         val requiredFormParams = requiredFormData.map {
@@ -146,7 +146,8 @@ object Http4sClient {
 
     def runOn(rs: List[(String, Option[(MediaRange, Type)])]): List[String] = {
       def decoder(mr: MediaRange, t: Type): Option[String] = t match {
-        case _ if MediaType.application.json.satisfiedBy(mr) => Some(s"jsonDecode[${typeStr(t)}]")
+        case _ if MediaType.application.json.satisfiedBy(mr) =>
+          Some(s"Runtime.jsonDecoder[F, ${typeStr(t)}]")
         case TString if MediaRange.`text/*`.satisfiedBy(mr) =>
           Some("http4s.EntityDecoder.text[F]")
         case _ => None
@@ -155,18 +156,14 @@ object Http4sClient {
       def one(s: String, t: Option[(MediaRange, Type)]): List[String] = t match {
         case Some((mr, tp)) => decoder(mr, tp) match {
           case None if rs.length == 1 =>
-            List(
-              s"case Status.$s => F.map(r.as(F, http4s.EntityDecoder.binary))(x => ",
-              "  Media[Pure](fs2.Stream.chunk(x), r.headers)",
-              ")"
-            )
+            List(s"case Status.$s => Runtime.purify(r: Media[F])")
           case Some(d) if rs.length == 1 =>
             List(s"case Status.$s => r.as(F, $d)")
           case None =>
             val p = producesPlain(e.produces)
             List(
-              s"case Status.$s => F.map(r.as(F, http4s.EntityDecoder.binary))(x => ",
-              s"  Coproduct[$p]($s(Media[Pure](fs2.Stream.chunk(x), r.headers)))",
+              s"case Status.$s => F.map(Runtime.purify(r: Media[F]))(x =>",
+              s"  Coproduct[$p]($s(x))",
               ")"
             )
           case Some(d) => List(
@@ -193,17 +190,7 @@ object Http4sClient {
     }
 
     val run = e.produces match {
-      case Produces.Untyped => List(
-        s"client(Api.$name).run(_request).use { r =>",
-        "  F.map(r.as(F, http4s.EntityDecoder.binary))(x => Response[Pure](",
-        "    status = r.status,",
-        "    httpVersion = r.httpVersion,",
-        "    headers = r.headers,",
-        "    body = fs2.Stream.chunk(x),",
-        "    attributes = r.attributes",
-        "  ))",
-        "}"
-      )
+      case Produces.Untyped => List(s"client(Api.$name).run(_request).use(Runtime.purify[F])")
       case Produces.One(status, t) => runOn(List(status -> t))
       case Produces.Many(rs) => runOn(rs.toList)
     }
@@ -262,10 +249,8 @@ object Http4sClient {
       "  def onError[A](req: Request[F], res: Response[F]): F[A] =",
       "    F.raiseError(UnexpectedStatus(res.status, req.method, req.uri))",
       "",
-      "  def jsonEncode[A : io.circe.Encoder]: http4s.EntityEncoder[F, A] =",
+      "  def jsonEncoder[A : io.circe.Encoder]: http4s.EntityEncoder[F, A] =",
       "    http4s.circe.jsonEncoderWithPrinterOf[F, A](Runtime.printer)",
-      "",
-      "  def jsonDecode[A : io.circe.Decoder]: http4s.EntityDecoder[F, A] = http4s.circe.jsonOf",
       "",
       endpoints.flatMap { case (segments, eps) =>
         eps.map { case (method, e) =>

@@ -43,29 +43,30 @@ object Http4sServer {
       case (pt, p) => throw new Exception(s"Unexpected parameter $p in $pt")
     }
 
-    def responseMapperStr(c: String, t: Option[(MediaRange, Type)]): String = t match {
-      case None => s"Runtime.emptyResponse[S](Status.$c)"
-      case Some((mr, t)) if MediaType.application.json.satisfiedBy(mr) =>
-        s"Runtime.jsonResponse[S, ${typeStr(t)}](Status.$c)"
-      case Some((mt: MediaType, TString)) if MediaRange.`text/*`.satisfiedBy(mt) =>
-        val sw = new StringWriter()
-        MediaType.http4sHttpCodecForMediaType.render(sw, mt)
-        s"""Runtime.textResponse[S](Status.$c, "${sw.result}")"""
-      case Some(_) => s"Runtime.mediaResponse[S](Status.$c)"
-    }
+    def emptyResponseMapper(c: String): String = s"Response[S](Status.$c)"
+    def nonEmptyResponseMapper(c: String, mr: MediaRange, t: Type, on: String): String =
+      (mr, t) match {
+        case (mr, _) if MediaType.application.json.satisfiedBy(mr) =>
+          s"Response[S](Status.$c).withEntity($on)(jsonEncoder)"
+        case (mt: MediaType, TString) if MediaRange.`text/*`.satisfiedBy(mt) =>
+          val sw = new StringWriter()
+          MediaType.http4sHttpCodecForMediaType.render(sw, mt)
+          s"""Response[S](Status.$c).withEntity($on)(Runtime.textEncoder("${sw.result}"))"""
+        case _ => s"""Response[S](status = Status.$c, headers = $on.headers, body = $on.body)"""
+      }
 
     val liftArgs = s"(_request.requestPrelude, Api.$name)"
     def apiMapper(on: String) = e.produces match {
       case Produces.Untyped => List(s"S.map(_L.lift$liftArgs($on))(_.covary[S])")
-      case Produces.One(c, t@None) =>
-        List(s"S.map(_L.lift$liftArgs($on))(_ => ${responseMapperStr(c, t)})")
-      case Produces.One(c, t@Some(_)) =>
-        List(s"S.map(_L.lift$liftArgs($on))(${responseMapperStr(c, t)})")
+      case Produces.One(c, None) =>
+        List(s"S.map(_L.lift$liftArgs($on))(_ => ${emptyResponseMapper(c)})")
+      case Produces.One(c, Some((mr, t))) =>
+        List(s"S.map(_L.lift$liftArgs($on))(x => ${nonEmptyResponseMapper(c, mr, t, "x")})")
       case Produces.Many(rs) =>
         val mapper = rs.toList.zipWithIndex.map {
-          case ((c, t@None), i) => s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}"
-          case ((c, t@Some(_)), i) =>
-            s"case ${shapelessPat(i, "r")} => ${responseMapperStr(c, t)}(r.content)"
+          case ((c, None), i) => s"case ${shapelessPat(i, "_")} => ${emptyResponseMapper(c)}"
+          case ((c, Some((mr, t))), i) =>
+            s"case ${shapelessPat(i, s"$c(x)")} => ${nonEmptyResponseMapper(c, mr, t, "x")}"
         } :+ s"case ${shapelessCNil(rs.size)} => cnil.impossible"
         List(
           List(s"S.map(_L.lift$liftArgs($on)) {"),
@@ -94,20 +95,20 @@ object Http4sServer {
       case Consumes.JsonBody(n, t) =>
         val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"_request.decodeValidated$opt[${typeStr(t)}]($n =>"),
+          List(s"Runtime.decodeValidated$opt[S, ${typeStr(t)}](_request)($n =>"),
           apiValidated.map("  " + _),
-          List(s")(S, Runtime.circeEntityDecoder[S, ${typeStr(t)}])")
+          List(s")(S, Runtime.jsonDecoder[S, ${typeStr(t)}])")
         ).flatten
       case Consumes.Entity(n, _) =>
         val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"_request.decodeValidated$opt[fs2.Stream[Pure, Byte]]($n =>"),
+          List(s"Runtime.decodeValidated$opt[S, fs2.Stream[Pure, Byte]](_request)($n =>"),
           apiValidated.map("  " + _),
           List(s")(S, http4s.EntityDecoder.binary[S].map(fs2.Stream.chunk[Pure, Byte]))")
         ).flatten
       case Consumes.FormData(_) =>
         List(
-          List(s"_request.decodeOrThrow[http4s.UrlForm](_formData =>"),
+          List(s"Runtime.decodeOrThrow[S, http4s.UrlForm](_request)(_formData =>"),
           apiValidated.map("  " + _),
           List(s")(S, http4s.UrlForm.entityDecoder[S])")
         ).flatten
@@ -159,7 +160,6 @@ object Http4sServer {
         "import api4s._",
         "import api4s.Endpoint.Router",
         "import api4s.internal.Runtime",
-        "import api4s.internal.Runtime.{ RequestOps => _RequestOps }",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _mapN }",
         "import cats.data.NonEmptyChain",
@@ -175,6 +175,9 @@ object Http4sServer {
         "class Http4sServer[F[_], S[_]](",
         "  api: Api[F]",
         ")(implicit S: Concurrent[S], _L: LiftRoute[F, S]) extends Endpoint[S] {",
+        "  def jsonEncoder[A : io.circe.Encoder]: http4s.EntityEncoder[S, A] =",
+        "    http4s.circe.jsonEncoderWithPrinterOf[S, A](Runtime.printer)",
+        "",
         "  def apply(",
         "    _request: Request[S],",
         "    _path: List[String],",

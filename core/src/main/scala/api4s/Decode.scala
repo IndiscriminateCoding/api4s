@@ -25,7 +25,14 @@ trait Decode[+A] { self =>
 object Decode {
   def apply[A](implicit decode: Decode[A]): Decode[A] = decode
 
-  private[this] def moreThanOneParameters[A](
+  private[this] object Names {
+    val Path = "path"
+    val Form = "form"
+    val Query = "query"
+    val Header = "header"
+  }
+
+  private[this] def moreThanOneParameter[A](
     where: String,
     name: String,
     xs: List[A]
@@ -44,17 +51,17 @@ object Decode {
         case x :: Nil => Valid(x)
         case Nil =>
           Validated.invalidNec(ParseFailure(s"$where parameter (name=$name) not found", ""))
-        case xs => moreThanOneParameters(where, name, xs)
+        case xs => moreThanOneParameter(where, name, xs)
       })
 
       def apply(in: String, name: String): ValidatedNec[Throwable, A] =
-        exactlyOne("path", name)(decode(in, name))
+        exactlyOne(Names.Path, name)(decode(in, name))
       def apply(in: UrlForm, name: String): ValidatedNec[Throwable, A] =
-        exactlyOne("form", name)(decode(in, name))
+        exactlyOne(Names.Form, name)(decode(in, name))
       def apply(in: Query, name: String): ValidatedNec[Throwable, A] =
-        exactlyOne("query", name)(decode(in, name))
+        exactlyOne(Names.Query, name)(decode(in, name))
       def apply(in: Headers, name: String): ValidatedNec[Throwable, A] =
-        exactlyOne("header", name)(decode(in, name))
+        exactlyOne(Names.Header, name)(decode(in, name))
     }
 
   implicit def decodeOption[A](implicit decode: Decode[List[A]]): Decode[Option[A]] =
@@ -66,17 +73,17 @@ object Decode {
         x.fold(Invalid(_), {
           case Nil => Valid(None)
           case x :: Nil => Valid(Some(x))
-          case xs => moreThanOneParameters(where, name, xs)
+          case xs => moreThanOneParameter(where, name, xs)
         })
 
       def apply(in: String, name: String): ValidatedNec[Throwable, Option[A]] =
-        option("path", name)(decode(in, name))
+        option(Names.Path, name)(decode(in, name))
       def apply(in: UrlForm, name: String): ValidatedNec[Throwable, Option[A]] =
-        option("form", name)(decode(in, name))
+        option(Names.Form, name)(decode(in, name))
       def apply(in: Query, name: String): ValidatedNec[Throwable, Option[A]] =
-        option("query", name)(decode(in, name))
+        option(Names.Query, name)(decode(in, name))
       def apply(in: Headers, name: String): ValidatedNec[Throwable, Option[A]] =
-        option("header", name)(decode(in, name))
+        option(Names.Header, name)(decode(in, name))
     }
 
   implicit val decodeListString: Decode[List[String]] = fromCasts(
@@ -121,21 +128,21 @@ object Decode {
       }
 
     def apply(in: String, name: String): ValidatedNec[Throwable, List[A]] =
-      tryCast("path", name)(path(in)).map(_ :: Nil)
+      tryCast(Names.Path, name)(path(in)).map(_ :: Nil)
 
     def apply(in: UrlForm, name: String): ValidatedNec[Throwable, List[A]] =
-      in.get(name).traverse(x => tryCast("form", name)(form(x))).map(_.toList)
+      in.get(name).traverse(x => tryCast(Names.Form, name)(form(x))).map(_.toList)
 
     def apply(in: Query, name: String): ValidatedNec[Throwable, List[A]] =
       in.pairs.foldLeft[List[String]](Nil) {
         case (acc, (n, Some(v))) if n == name => v :: acc
         case (acc, _) => acc
-      }.traverse(x => tryCast("query", name)(query(x)))
+      }.traverse(x => tryCast(Names.Query, name)(query(x)))
 
     def apply(in: Headers, name: String): ValidatedNec[Throwable, List[A]] =
       in.headers.foldLeft[List[String]](Nil) {
         case (acc, h) if h.name == CIString(name) => h.value :: acc
         case (acc, _) => acc
-      }.traverse(x => tryCast("header", name)(header(x)))
+      }.traverse(x => tryCast(Names.Header, name)(header(x)))
   }
 }

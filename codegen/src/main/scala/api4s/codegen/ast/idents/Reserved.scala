@@ -11,7 +11,7 @@ object Reserved {
   )
 
   val reservedIdentifiers: Set[String] = Set(
-    "media", "api", "client", "http4s", "scheme", "authority", "onError", "jsonEncode", "jsonDecode"
+    "media", "api", "client", "http4s", "scheme", "authority", "onError", "jsonEncoder"
   )
 
   val importedSymbols: Set[String] = Set(
