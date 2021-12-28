@@ -9,26 +9,13 @@ import fs2.{ Chunk, Pure, Stream }
 import io.circe._
 import org.http4s._
 import org.http4s.circe._
-import org.http4s.headers._
 
 object Runtime {
   def decodeValidatedOpt[F[_], A](r: Request[F])(
     f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
-  )(implicit F: Concurrent[F], D: EntityDecoder[F, A]): F[Response[F]] = {
-    val drain = r.body.compile[F, F, Byte].drain
-    val none = drain >> f(Valid(None))
-
-    r.headers.get[`Content-Length`] match {
-      case Some(l) if l.length == 0 => none
-      case _ => r.headers.get[`Content-Type`] match {
-        case Some(ct) if D.consumes.exists(ct.mediaType.satisfiedBy) =>
-          decodeValidated[F, A](r)(x => f(x.map(Some(_))))
-        case Some(ct) =>
-          drain >> f(Validated.invalidNec(MediaTypeMismatch(ct.mediaType, D.consumes)))
-        case _ => none
-      }
-    }
-  }
+  )(implicit F: Concurrent[F], D: EntityDecoder[F, A]): F[Response[F]] =
+    if (r.contentType.isEmpty) r.body.compile[F, F, Byte].drain >> f(Valid(None))
+    else decodeValidated[F, A](r)(x => f(x.map(Some(_))))
 
   def decodeValidated[F[_], A](r: Request[F])(
     f: ValidatedNec[Throwable, A] => F[Response[F]]
