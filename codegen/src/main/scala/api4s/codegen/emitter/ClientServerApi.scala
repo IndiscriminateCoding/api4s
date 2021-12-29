@@ -83,9 +83,15 @@ object ClientServerApi {
         }
         s"""val $name = RouteInfo("${file.getName}", "$name", $tagStr)"""
       }
-      val all = s"val _all: Set[RouteInfo] = Set(${eps.map(_.name.get).mkString(", ")})"
 
-      endpoints.toList :+ all
+      List(
+        endpoints.toList,
+        List(
+          "val _all: Set[RouteInfo] = Set(",
+          eps.map(_.name.get).mkString("  ", ",\n    ", "")
+        ),
+        List(")"),
+      ).flatten
     }.map("  " + _)
   }
 }

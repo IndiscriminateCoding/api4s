@@ -165,6 +165,7 @@ case class RequestBody(
 
   lazy val proposedName: Option[String] = consumes match {
     case Entity(name, _) => Some(name)
+    case JsonBody(name, _) => Some(name)
     case _ => None
   }
 

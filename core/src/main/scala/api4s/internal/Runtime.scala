@@ -50,7 +50,6 @@ object Runtime {
       def consumes: Set[MediaRange] = decoder.consumes
     }
 
-
   val printer: Printer = Printer.spaces2.copy(dropNullValues = true)
 
   def jsonDecoder[F[_] : Concurrent, A : Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
