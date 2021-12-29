@@ -31,9 +31,9 @@ object Http4sServer {
         val ts = if (req) primitiveStr(t) else s"Option[${primitiveStr(t)}]"
         s"""Decode[$ts].apply(_request.uri.query, "$rn")"""
       case (Parameter.Body(_), Parameter(n, TMedia, true)) =>
-        s"$n.map($n => Media[Pure]($n, _request.headers))"
-      case (Parameter.Body(_), Parameter(n, TMedia, false)) =>
-        s"$n.map($n => $n.map($n => Media[Pure]($n, _request.headers)))"
+        s"cats.data.Validated.Valid($n)"
+      case (Parameter.Body(_), Parameter(_, TMedia, false)) =>
+        throw new Exception("Unexpected: optional Media parameter")
       case (Parameter.Body(_), Parameter(n, _, _)) => n
       case (Parameter.InlinedBody(rn), Parameter(_, TArr(t), _)) =>
         s"""Decode[List[${primitiveStr(t)}]].apply(_formData, "$rn")"""
@@ -93,24 +93,27 @@ object Http4sServer {
 
     val apiCallWithBody = e.requestBody.consumes match {
       case Consumes.JsonBody(n, t) =>
-        val opt = if (e.requestBody.required) "" else "Opt"
+        def opt(s: String) = if (e.requestBody.required) s else s"Runtime.option(S, $s)"
+        val decoder = s"Runtime.validated(S, ${opt(s"Runtime.jsonDecoder[S, ${typeStr(t)}]")})"
         List(
-          List(s"Runtime.decodeValidated$opt[S, ${typeStr(t)}](_request)($n =>"),
+          List(
+            s"val _decoder = $decoder",
+            s"S.flatMap(Runtime.decode(_request)(S, _decoder))($n =>"
+          ),
           apiValidated.map("  " + _),
-          List(s")(S, Runtime.jsonDecoder[S, ${typeStr(t)}])")
+          List(s")")
         ).flatten
       case Consumes.Entity(n, _) =>
-        val opt = if (e.requestBody.required) "" else "Opt"
         List(
-          List(s"Runtime.decodeValidated$opt[S, fs2.Stream[Pure, Byte]](_request)($n =>"),
+          List(s"S.flatMap(Runtime.purify(_request: Media[S]))($n =>"),
           apiValidated.map("  " + _),
-          List(s")(S, http4s.EntityDecoder.binary[S].map(fs2.Stream.chunk[Pure, Byte]))")
+          List(s")")
         ).flatten
       case Consumes.FormData(_) =>
         List(
-          List(s"Runtime.decodeOrThrow[S, http4s.UrlForm](_request)(_formData =>"),
+          List(s"S.flatMap(Runtime.decode[S, http4s.UrlForm](_request))(_formData =>"),
           apiValidated.map("  " + _),
-          List(s")(S, http4s.UrlForm.entityDecoder[S])")
+          List(s")")
         ).flatten
       case Consumes.Empty => apiValidated
     }
@@ -162,7 +165,6 @@ object Http4sServer {
         "import api4s.internal.Runtime",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _mapN }",
-        "import cats.data.NonEmptyChain",
         "import cats.effect.Concurrent",
         "import fs2.Pure",
         "import io.circe.Json",

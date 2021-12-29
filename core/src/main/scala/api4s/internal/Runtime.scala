@@ -4,31 +4,15 @@ import cats.data.Validated._
 import cats.data.{ Validated, ValidatedNec }
 import cats.effect._
 import cats.implicits._
-import cats.{ FlatMap, MonadThrow }
+import cats.{ Functor, MonadThrow }
 import fs2.{ Chunk, Pure, Stream }
 import io.circe._
 import org.http4s._
 import org.http4s.circe._
 
 object Runtime {
-  def decodeValidatedOpt[F[_], A](r: Request[F])(
-    f: ValidatedNec[Throwable, Option[A]] => F[Response[F]]
-  )(implicit F: Concurrent[F], D: EntityDecoder[F, A]): F[Response[F]] =
-    if (r.contentType.isEmpty) r.body.compile[F, F, Byte].drain >> f(Valid(None))
-    else decodeValidated[F, A](r)(x => f(x.map(Some(_))))
-
-  def decodeValidated[F[_], A](r: Request[F])(
-    f: ValidatedNec[Throwable, A] => F[Response[F]]
-  )(implicit F: FlatMap[F], D: EntityDecoder[F, A]): F[Response[F]] =
-    D.decode(r, strict = true).value.flatMap {
-      case Left(e) => f(Validated.invalidNec(e))
-      case Right(x) => f(Valid(x))
-    }
-
-  def decodeOrThrow[F[_], A](r: Request[F])(
-    f: A => F[Response[F]]
-  )(implicit F: MonadThrow[F], D: EntityDecoder[F, A]): F[Response[F]] =
-    D.decode(r, strict = true).rethrowT.flatMap(f)
+  def decode[F[_] : MonadThrow, A](m: Media[F])(implicit decoder: EntityDecoder[F, A]): F[A] =
+    decoder.decode(m, strict = true).value.rethrow
 
   def purify[F[_] : Concurrent, A](s: Stream[F, A]): F[Stream[Pure, A]] =
     s.chunks.compile.toVector.map(x => Stream.apply(x: _*).unchunks)
@@ -46,6 +30,26 @@ object Runtime {
         attributes = r.attributes
       )
     }
+
+  def validated[F[_] : Functor, A](
+    implicit decoder: EntityDecoder[F, A]
+  ): EntityDecoder[F, ValidatedNec[Throwable, A]] =
+    decoder.transform {
+      case Left(e) => Right(Validated.invalidNec(e))
+      case Right(a) => Right(Valid(a))
+    }
+
+  def option[F[_] : Concurrent, A](
+    implicit decoder: EntityDecoder[F, A]
+  ): EntityDecoder[F, Option[A]] =
+    new EntityDecoder[F, Option[A]] {
+      def decode(m: Media[F], strict: Boolean): DecodeResult[F, Option[A]] =
+        if (m.contentType.nonEmpty) decoder.decode(m, strict).map(Some(_))
+        else DecodeResult.success(m.body.compile.drain.as(None))
+
+      def consumes: Set[MediaRange] = decoder.consumes
+    }
+
 
   val printer: Printer = Printer.spaces2.copy(dropNullValues = true)
 

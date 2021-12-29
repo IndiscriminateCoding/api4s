@@ -99,9 +99,9 @@ case class Endpoint(
     })
     val setRequired = all map {
       case (k@Parameter.Query(_), Parameter(n, t@Type.TArr(_), false)) =>
-        k -> Parameter(n, t, true)
+        k -> Parameter(n, t, true) // array parameters in a query shouldn't be wrapped in Option
       case (k@Parameter.Body(_), Parameter(n, t@Type.TMedia, false)) =>
-        k -> Parameter(n, t, true)
+        k -> Parameter(n, t, true) // no media is just empty Media
       case p => p
     }
 
@@ -173,8 +173,7 @@ case class RequestBody(
     case (mr, t) :: Nil if mr == MediaType.application.json => JsonBody(name.get, t)
     case (mr, TObj(flds)) :: Nil if mr == MediaType.application.`x-www-form-urlencoded` =>
       FormData(flds.toList)
-    case (mt: MediaType, _) :: Nil =>
-      Entity(name.getOrElse(s"${mt.mainType}/${mt.subType}"), Some(mt))
+    case (mt: MediaType, _) :: Nil => Entity(name.getOrElse("media"), Some(mt))
     case _ => Entity(name.getOrElse("media"), None)
   }
 }

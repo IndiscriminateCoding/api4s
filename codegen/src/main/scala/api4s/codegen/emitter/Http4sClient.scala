@@ -153,12 +153,15 @@ object Http4sClient {
         case _ => None
       }
 
+      // use Media#as to allow missing Content-Type headers
+      def decode(on: String, decoder: String) = s"$on.as(F, $decoder)"
+
       def one(s: String, t: Option[(MediaRange, Type)]): List[String] = t match {
         case Some((mr, tp)) => decoder(mr, tp) match {
           case None if rs.length == 1 =>
             List(s"case Status.$s => Runtime.purify(r: Media[F])")
           case Some(d) if rs.length == 1 =>
-            List(s"case Status.$s => r.as(F, $d)")
+            List(s"case Status.$s => ${decode("r", d)}")
           case None =>
             val p = producesPlain(e.produces)
             List(
@@ -167,7 +170,7 @@ object Http4sClient {
               ")"
             )
           case Some(d) => List(
-            s"case Status.$s => F.map(r.as(F, $d))(x => ",
+            s"case Status.$s => F.map(${decode("r", d)})(x => ",
             s"  Coproduct[${producesPlain(e.produces)}]($s(x))",
             ")"
           )
