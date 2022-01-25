@@ -23,7 +23,6 @@ object Reserved {
     "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain", "Pure",
 
     "F", "S", "Router", "Runtime", "Endpoint", "Decode", "Errors", "RouteInfo", "MapK",
-    "LiftRoute",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media"
   ) ++ Registry.registry.map { case (_, (n, _)) => n }

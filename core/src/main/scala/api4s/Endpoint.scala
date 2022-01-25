@@ -12,19 +12,25 @@ trait Endpoint[F[_]] {
     (request: Request[F], path: List[String], router: Router[F]) =>
       apply(request, path, new Fallback(request, path, router, that))
 
-  final def toHttpApp(implicit F: Applicative[F]): HttpApp[F] = Kleisli(run)
+  final def toHttpApp(implicit F: Applicative[F]): HttpApp[F] = Kleisli(apply)
 
-  final def run(r: Request[F])(implicit F: Applicative[F]): F[Response[F]] =
-    apply(r, r.uri.path.segments.iterator.map(_.toString).toList, new Default[F])
+  final def apply(r: Request[F])(implicit F: Applicative[F]): F[Response[F]] =
+    apply(r, new Default[F])
+
+  final def apply(r: Request[F], router: Router[F]): F[Response[F]] =
+    apply(r, r.uri.path.segments.iterator.map(_.toString).toList, router)
 }
 
 object Endpoint {
   trait Router[F[_]] {
+    def route(req: RequestPrelude, info: RouteInfo)(res: F[Response[F]]): F[Response[F]]
     def methodNotAllowed(allowed: Set[Method]): F[Response[F]]
     def notFound: F[Response[F]]
   }
 
-  private class Default[F[_]](implicit F: Applicative[F]) extends Router[F] {
+  class Default[F[_]](implicit F: Applicative[F]) extends Router[F] {
+    def route(req: RequestPrelude, info: RouteInfo)(res: F[Response[F]]): F[Response[F]] = res
+
     def methodNotAllowed(allowed: Set[Method]): F[Response[F]] = F.pure(Response(
       headers = Headers("Allow" -> allowed.mkString(", ")),
       status = Status.MethodNotAllowed
@@ -39,8 +45,14 @@ object Endpoint {
     router: Router[F],
     other: Endpoint[F]
   ) extends Router[F] {
+    def route(req: RequestPrelude, info: RouteInfo)(res: F[Response[F]]): F[Response[F]] =
+      router.route(req, info)(res)
+
     def methodNotAllowed(a: Set[Method]): F[Response[F]] =
       other(request, path, new Router[F] {
+        def route(req: RequestPrelude, info: RouteInfo)(res: F[Response[F]]): F[Response[F]] =
+          router.route(req, info)(res)
+
         def methodNotAllowed(b: Set[Method]): F[Response[F]] = router.methodNotAllowed(a ++ b)
 
         def notFound: F[Response[F]] = router.methodNotAllowed(a)
