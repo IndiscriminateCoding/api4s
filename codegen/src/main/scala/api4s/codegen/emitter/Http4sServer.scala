@@ -114,16 +114,23 @@ object Http4sServer {
           apiValidated.map("  " + _),
           List(s")")
         ).flatten
+      /* TODO */
+      /* case Consumes.Empty if e.orderedParameters.nonEmpty =>
+        List(
+          List("F.defer {"),
+          apiValidated.map("  " + _),
+          List("}")
+        ) */
       case Consumes.Empty => apiValidated
     }
 
     List(
       List(
         s"case Method.${m.toString.toUpperCase} =>",
-        s"  _router.route(_request.requestPrelude, Api.$name) {"
+        s"  Endpoint.Route(Api.$name, {",
       ),
       apiCallWithBody.map("    " + _),
-      List("  }")
+      List("  })")
     ).flatten
   }
 
@@ -150,7 +157,7 @@ object Http4sServer {
           .mkString("Set(", ", ", ")")
         val methodList = methods
           .flatMap { case (m, e) => methodMatcher(m, e) }
-          .toList :+ s"case _ => _router.methodNotAllowed($allowed)"
+          .toList :+ s"case _ => Endpoint.MethodNotAllowed($allowed)"
 
         List(
           List(segmentsMatcher(segment) ++ " _request.method match {"),
@@ -164,7 +171,6 @@ object Http4sServer {
         s"package $pkg",
         "",
         "import api4s._",
-        "import api4s.Endpoint.Router",
         "import api4s.internal.Runtime",
         "import api4s.outputs._",
         "import api4s.utils.validated.{ MapN => _mapN }",
@@ -185,13 +191,12 @@ object Http4sServer {
         "",
         "  def apply(",
         "    _request: Request[F],",
-        "    _path: List[String],",
-        "    _router: Router[F]",
-        "  ): F[Response[F]] = _path match {"
+        "    _path: List[String]",
+        "  ): Endpoint.Result[F] = _path match {"
       ),
       endpointList.map("    " + _),
       List(
-        "    case _ => _router.notFound",
+        "    case _ => Endpoint.NotFound",
         "  }",
         "}"
       )

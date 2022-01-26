@@ -22,7 +22,7 @@ object Reserved {
     "Resource", "Coproduct", "UnexpectedStatus", "Method", "EntityEncoder", "EntityDecoder", "Inl",
     "Inr", "Uri", "Applicative", "Defer", "NonEmptyChain", "Pure",
 
-    "F", "S", "Router", "Runtime", "Endpoint", "Decode", "Errors", "RouteInfo", "MapK",
+    "F", "S", "Runtime", "Endpoint", "Decode", "Errors", "RouteInfo", "MapK",
 
     "Model", "Http4sServer", "Http4sClient", "Client", "Api", "Media"
   ) ++ Registry.registry.map { case (_, (n, _)) => n }
