@@ -1,1 +1,1 @@
-addSbtPlugin("com.github.IndiscriminateCoding" % "api4s-sbt" % "0.3.0-SNAPSHOT")
+addSbtPlugin("com.github.IndiscriminateCoding" % "api4s-sbt" % "0.3.1-SNAPSHOT")

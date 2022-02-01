@@ -1,4 +1,4 @@
 object Versions {
-  val api4s = "0.3.0-SNAPSHOT"
+  val api4s = "0.3.1-SNAPSHOT"
   val http4s = "0.23.9"
 }
