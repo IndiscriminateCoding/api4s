@@ -29,9 +29,9 @@ object Api4s extends AutoPlugin {
       )
     }
 
-    def without4xx: Src = filterByCode(_.exists(c => c < 400 || c >= 500))
+    def without4xx: Src = filterByCode(_.forall(c => c < 400 || c >= 500))
 
-    def without5xx: Src = filterByCode(_.exists(c => c < 500))
+    def without5xx: Src = filterByCode(_.forall(c => c < 500))
 
     def withoutDefault: Src = filterByCode(_.nonEmpty)
   }
