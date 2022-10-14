@@ -1,6 +1,6 @@
 ThisBuild / version := "0.0.0"
 ThisBuild / organization := "com.github.IndiscriminateCoding"
-ThisBuild / scalaVersion := "2.13.8"
+ThisBuild / scalaVersion := "2.13.10"
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
   "-explaintypes",
