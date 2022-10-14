@@ -21,6 +21,6 @@ lazy val example = (project in file("."))
       "ch.qos.logback" % "logback-classic" % "1.2.7",
 
       "org.http4s" %% "http4s-blaze-client" % Versions.http4s % "test",
-      "org.scalatest" %% "scalatest" % "3.2.11" % "test"
+      "org.scalatest" %% "scalatest" % "3.2.14" % "test"
     )
   )
