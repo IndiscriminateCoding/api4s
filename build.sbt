@@ -1,6 +1,6 @@
 Global / useSuperShell := false
 
-lazy val scalaVersions = List("2.12.15", "2.13.8")
+lazy val scalaVersions = List("2.12.19", "2.13.8")
 
 ThisBuild / version := Versions.api4s
 ThisBuild / organization := "com.github.IndiscriminateCoding"
